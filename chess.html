@@ -11,7 +11,7 @@
 	.row:nth-child(even)>.square:nth-child(even), .row:nth-child(odd)>.square:nth-child(odd) { background-color: #EEE; }
 	.row:nth-child(odd)>.square:nth-child(even), .row:nth-child(even)>.square:nth-child(odd) { background-color: #111; }
 	.valid::after{ content: ""; position: absolute; left: 50%; top: 50%; width: 2vh; height: 2vh; border-radius: 1vh;
-	  background-color: rgba(0, 216, 54, 0.66); margin: -1vh; }
+		background-color: rgba(0, 216, 54, 0.66); margin: -1vh; }
 	.white, .black { position: absolute; width: 10vh; height: 10vh; padding: 2vh 0; border-radius: 5vh; left: 50%;
 		top: 50%; margin: -5vh; font-size: 4vh; text-align: center; box-sizing: border-box; border: .5vh solid #7F7F7F; }
 	.black { background-color: #111; color: #EEE; } .white { background-color: #EEE; color: #111; }
@@ -28,59 +28,54 @@
 	const board = new Array(8).fill(new Array(8)), letters = "abcdefgh",
 	getSquare = (x, y) => document.getElementById(letters[y] + (8 - x));
 	for (let i = 0; i < 8; i++) {
-	  let row = document.createElement('div');
-	  row.className = "row";
-	  for (let j = 0; j < 8; j++) {
-	    let square = document.createElement('div');
-	    square.className = "square";
-	    square.id = letters[j] + (8 - i);
-	    square.tabIndex = i * 8 + j + 1;
-	    row.appendChild(square);
-	  }
-	  chessboard.appendChild(row);
+		let row = document.createElement('div');
+		row.className = "row";
+		for (let j = 0; j < 8; j++) {
+			let square = document.createElement('div');
+			square.className = "square";
+			square.id = letters[j] + (8 - i);
+			square.tabIndex = i * 8 + j + 1;
+			row.appendChild(square);
+		}
+		chessboard.appendChild(row);
 	}
 	chessboard.addEventListener('click', function(e) {
-	  let squ = e.target, piece;
-	  if (!squ.id) { // Error 404: Squid not found
-	    piece = squ;
-	    squ = piece.parentNode;
-	  }
+		let squ = e.target, piece;
+		if (!squ.id) { // Error 404: Squid not found
+			piece = squ;
+			squ = piece.parentNode;
+		}
 	}, true);
 	class Piece {
-	  constructor(x, y, type, color) {
-	    this.x = x;
-	    this.y = y;
-	    this.elm = document.createElement('div');
-	    this.elm.className = type + ' ' + color;
-	    let square = getSquare(x, y);
-	    if(square.children.length) throw new Error('Square is already occupied');
-	    square.appendChild(this.elm);
-	  }
-	  move(x, y) {
-	    getSquare(this.x, this.y).removeChild(this.elm);
-	    this.x = x;
-	    this.y = y;
-	    let newSquare = getSquare(x, y);
-	    if(square.children.length) return "Invalid move";
-	    newSquare.appendChild(this.elm);
-	  }
-	  attack(x, y){
-	  	let support;
-	  }
-	  get validMoves() { return []; }
-	  get supportedMoves() { return []; }
+		constructor(x, y, type, color) {
+			this.x = x;
+			this.y = y;
+			this.elm = document.createElement('div');
+			this.elm.className = type + ' ' + color;
+			let square = getSquare(x, y);
+			if(square.children.length) throw new Error('Square is already occupied');
+			square.appendChild(this.elm);
+		}
+		move(x, y) {
+			newSquare.appendChild(this.elm);
+		}
+		attack(x, y){
+			let support;
+		}
+		get validMoves() { return []; }
+		get supportedMoves() { return []; }
 	}
 	class Infantry extends Piece {
-	  constructor(x, y, color) {
-	    super(x, y, 'inf', color);
-	  }
-	  get validMoves() {
-	    let moves = [];
-	    if (this.x > 0) {}
-	  }
-	  get supportedMoves() {
+		constructor(x, y, color) {
+			super(x, y, 'inf', color);
+		}
+		get validMoves() {
+			let moves = [];
+			if (this.x > 0) {}
+		}
+		get supportedMoves() {
 
-	  }
+		}
 	}
 	</script>
 </body>
