@@ -19,6 +19,7 @@
 	.art::after { content: "ART";	} .cru::after { content: "CRU";	} .des::after { content: "DES";	}
 	.bts::after { content: "BTS";	} .acc::after { content: "ACC";	} .sub::after { content: "SUB";	}
 	.ftr::after { content: "FTR";	} .bmb::after { content: "BMB";	} .hel::after { content: "HEL";	}
+	.tra::after { content: "TRA";	}
 	</style>
 </head>
 <body>
@@ -64,7 +65,7 @@
 	    if(square.children.length) return "Invalid move";
 	    newSquare.appendChild(this.elm);
 	  }
-	  attack(x, y){
+	  attack(x, y) {
 	  	let support;
 	  }
 	  get validMoves() { return []; }
@@ -72,15 +73,251 @@
 	}
 	class Infantry extends Piece {
 	  constructor(x, y, color) {
-	    super(x, y, 'inf', color);
-	  }
+			super(x, y, 'inf', color);
+			this.attacksToKill = 1;
+			this.price = {
+				dev : 2, //further balancing needed; all non-inf prices taken from manual
+				steel : 0, //and are not intended to be definite
+				oil : 0
+			}
+		}
 	  get validMoves() {
-	    let moves = [];
-	    if (this.x > 0) {}
+	    return getValidMoves(this.x, this.y, 1, 0);
 	  }
-	  get supportedMoves() {
+		get validAttacks() {
+			return getValidMoves(this.x, this.y, 0, 1);
+		}
+	}
+	class MechanizedInfantry extends Piece {
+	  constructor(x, y, color) {
+			super(x, y, 'min', color);
+			this.attacksToKill = 1;
+			this.price = {
+				dev : 2,
+				steel : 1,
+				oil : 0
+			}
+		}
+	  get validMoves() {
+	    return getValidMoves(this.x, this.y, 0, 8);
+	  }
+		get validAttacks() {
+			return this.validMoves;
+		}
+	}
+	class Tank extends Piece {
+	  constructor(x, y, color) {
+			super(x, y, 'tnk', color);
+			this.attacksToKill = 1;
+			this.price = {
+				dev : 2,
+				steel : 2,
+				oil : 0
+			}
+		}
+	  get validMoves() {
+			return getValidMoves(this.x, this.y, 8, 0);
+	  }
+		get validAttacks() {return this.validMoves;}
+	}
+	class Artillery extends Piece {
+	  constructor(x, y, color) {
+			super(x, y, 'art', color);
+			this.attacksToKill = 1;
+			this.price = {
+				dev : 3,
+				steel : 1,
+				oil : 0
+			}
+		}
+	  get validMoves() {
+	    return getValidMoves(this.x, this.y, "knight");
+	  }
+		get validAttacks() {return this.validMoves;}
+	}
+	class Cruiser extends Piece {
+	  constructor(x, y, color) {
+			super(x, y, 'cru', color);
+			this.attacksToKill = 1;
+			this.price = {
+				dev : 2,
+				steel : 2,
+				oil : 0
+			}
+		}
+	  get validMoves() {
+			return getValidMoves(this.x, this.y, 8, 0);
+	  }
+		get validAttacks() {return this.validMoves;}
+	}
+	class Destroyer extends Piece {
+		constructor(x, y, color) {
+			super(x, y, 'des', color);
+			this.attacksToKill = 1;
+			this.price = {
+				dev : 2,
+				steel : 0,
+				oil : 2
+			}
+		}
+		get validMoves() {
+			return getValidMoves(this.x, this.y, 0, 8);
+		}
+		get validAttacks() {
+			return this.validMoves();
+		}
+	}
+	class Battleship extends Piece {
+		constructor(x, y, color) {
+			super(x, y, 'bts', color);
+			this.attacksToKill = 2;
+			this.price = {
+				dev : 2,
+				steel : 2,
+				oil : 2
+			}
+		}
+		get validMoves() {
+			return getValidMoves(this.x, this.y, "knight");
+		}
+		get validAttacks() {
+			return this.validMoves();
+		}
+	}
+	class AircraftCarrier extends Piece {
+		constructor(x, y, color) {
+			super(x, y, 'acc', color);
+			this.attacksToKill = 2;
+			this.price = {
+				dev : 4,
+				steel : 1,
+				oil : 3
+			}
+		}
+		get validMoves() {
+			return getValidMoves(this.x, this.y, 8, 8);
+		}
+		get validAttacks() {
+			return this.validMoves();
+		}
+	}
+	class Submarine extends Piece {
+		constructor(x, y, color) {
+			super(x, y, 'sub', color);
+			this.attacksToKill = 2;
+			this.price = {
+				dev : 3,
+				steel : 0,
+				oil : 3
+			}
+		}
+		get validMoves() {
+			return getValidMoves(this.x, this.y, 2, 0);
+		}
+		get validAttacks() {
+			return this.validMoves();
+		}
+	}
+	class Fighter extends Piece { //REMEMBER: can move past unit after killing
+		constructor(x, y, color) {
+			super(x, y, 'ftr', color);
+			this.attacksToKill = 1;
+			this.price = {
+				dev : 3,
+				steel : 0,
+				oil : 3
+			}
+		}
+		get validMoves() {
+			return getValidMoves(this.x, this.y, 8, 8);
+		}
+		get validAttacks() {
+			return this.validMoves();
+		}
+	}
+	class Bomber extends Piece {
+		constructor(x, y, color) {
+			super(x, y, 'bmb', color);
+			this.attacksToKill = 1;
+			this.price = {
+				dev : 4,
+				steel : 4,
+				oil : 0
+			}
+		}
+		get validMoves() {
+			return getValidMoves(this.x, this.y, 1, 0);
+		}
+		get validAttacks() {
+			return [];
+		}
+		get instakills() { //when running turn, maybe check if piece has .instakills prop and if so call it?
+			return getValidMoves(this.x, this.y, 1, 1); //that way not every piece needs an instakills getter
+		}
+	}
+	class Transport extends Piece {
+		constructor(x, y, color) {
+			super(x, y, 'tra', color);
+			this.attacksToKill = 1;
+			this.price = {
+				dev : 5,
+				steel : 0,
+				oil : 1
+			}
+		}
+		get validMoves() {
+			return [];
+		}
+		get validAttacks() {
+			return [];
+		}
+	}
+	class Helicopter extends Piece {
+		constructor(x, y, color) {
+			super(x, y, 'hel', color);
+			this.attacksToKill = 1;
+			this.price = {
+				dev : 2,
+				steel : 0,
+				oil : 2
+			}
+		}
+		get validMoves() {
+			//?
+		}
+		get validAttacks() {
+			//?
+		}
+	}
 
-	  }
+	function getValidMoves(x, y, s, d) { //if s == "knight" will return knight moves and ignore d
+		function isInBounds(x,y) {
+			if (x >= 0 && x < 8 && y >= 0 && y < 8) return true;
+			return false;
+		}
+		var moves = [];
+		if (s == "knight") {
+			for (let i = -2; i <= 2; i += 4) {
+				if (x + i >= 0 && y > 0) moves.push([x + i, y - 1]);
+				if (x + i < 8 && y < 7) moves.push([x + i, y + 1]);
+				if (y + i >= 0 && x > 0) moves.push([x - 1, y + i]);
+				if (y + i < 8 && x < 7) moves.push([x + 1, y + i]);
+			}
+			return moves;
+		}
+		for (var i = -d; i <= d; i++) { //diagonals (=bishop)
+			if (i != 0) {
+				if (isInBounds(x + i, y + i)) moves.push([x + i, y + i]);
+				if (isInBounds(x + i, y - i)) moves.push([x + i, y - i]);
+			}
+		}
+		for (var k = -s; k <= s; k++) { //straight (=rook)
+			if (k != 0) {
+				if (isInBounds(x + k, y)) moves.push([x + k, y]);
+				if (isInBounds(x, y + k)) moves.push([x, y + k]);
+			}
+		}
+		return moves;
 	}
 	</script>
 </body>
