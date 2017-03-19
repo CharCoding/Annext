@@ -57,6 +57,11 @@
 			square.appendChild(this.elm);
 		}
 		move(x, y) {
+			let newSquare = getSquare(x, y);
+			if(newSquare.children.length) return "Invalid move";
+			getSquare(this.x, this.y).removeChild(this.elm);
+			this.x = x;
+			this.y = y;
 			newSquare.appendChild(this.elm);
 		}
 		attack(x, y){
@@ -72,6 +77,10 @@
 		get validMoves() {
 			let moves = [];
 			if (this.x > 0) {}
+		}
+		get validAttacks() {
+			let moves = [];
+
 		}
 		get supportedMoves() {
 

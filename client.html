@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-	<title>Hex grid</title>
+	<title>Annext</title>
 	<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
 	<link href="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.98.0/css/materialize.min.css" rel="stylesheet" type="text/css" />
 	<link href="favicon.ico" rel="icon" type="image/x-icon" />
@@ -98,6 +98,20 @@
 		margin: 0 !important;
 		border-radius: 50%;
 	}
+	.tabcontent {
+		position: absolute;
+		left: 0;
+		top: 112px;
+		right: 0;
+		bottom: 0;
+	}
+	canvas {
+		position: absolute;
+		left: 0;
+		top: 0;
+		width: 100%;
+		height: 100%;
+	}
 	</style>
 </head>
 <body>
@@ -106,7 +120,7 @@
 		<h4 class="display">Next Level World Domination</h4>
 		<div id="start">
 			<div class="row">
-				<div class="col s2 offset-s3 white-text"><h4 style="text-align: right;">http://</h4></div>
+				<div class="col s2 offset-s3 white-text"><h4 style="text-align: right;">ws://</h4></div>
 				<div class="col s1 input-field white-text">
 					<input type="text" id="url" class="validate" required="required" placeholder="Server code" maxlength="8" size="8" pattern="^[a-f\d]{8}$" data-error="Invalid code" data-successs="Looks good!" />
 				</div>
@@ -220,7 +234,6 @@
 				<a href="#" class="brand-logo">
 					<img id="logo" src="./images/x.png" width="46" height="40" alt="x" />
 					<span id="countryName"></span>
-					<span id="turn">Turn 1 - Economy Phase</span>
 				</a>
 				<ul class="right">
 					<li><a href="#!"><i class="material-icons left">launch</i>Manual</a></li>
@@ -236,7 +249,7 @@
 				</ul>
 			</div>
 		</nav>
-		<div id="map" class="col s12">
+		<div id="map" class="col s12 tabcontent">
 			<canvas id="c"></canvas>
 			<div id="action" class="fixed-action-btn horizontal">
 				<a class="btn-floating btn-large pink">
@@ -250,13 +263,13 @@
 				</ul>
 			</div>
 		</div>
-		<div id="history" class="col s12">
+		<div id="history" class="col s12 tabcontent">
 
 		</div>
-		<div id="stats" class="col s12">
+		<div id="stats" class="col s12 tabcontent">
 
 		</div>
-		<div id="battle" class="col s12">
+		<div id="battle" class="col s12 tabcontent">
 
 		</div>
 		<!-- Sidenav always hides when blurred, implementing my own -->
@@ -281,19 +294,21 @@
 				<h4>Name of Your Country:</h4>
 				<div class="row">
 					<div class="col s6 input-field">
-						<input id="countryInput" class="validate" type="text" maxlength="48" pattern="^[A-Za-z][A-Za-z ]+$" data-error="Invalid country name" data-success="Sounds great!" /><label for="country">Country Name:</label>
+						<input id="countryInput" class="validate" type="text" maxlength="32" pattern="^[A-Za-z][A-Za-z ]+$" data-error="Invalid country name" data-success="Sounds great!" /><label for="country">Country Name:</label>
 					</div>
 					<div class="col s6">
-						<a id="generateName" class="btn waves-effect waves-light pink white-text">GENERATE</a>
+						<a id="generateName" class="btn waves-effect waves-light pink white-text">GENERATE <i class="material-icons right">refresh</i></a>
 					</div>
+				</div>
+				<div class="row">
+					<div class="col s12">Try to come up with a name that doesn't reveal your identity, so that the game can be less personal.<br />A country name can only contain letters and spaces.<br />You CANNOT change the country name once you press CONFIRM.</div>
 				</div>
 			</div>
 			<div class="modal-footer">
-				<a href="#!" class="btn modal-action modal-close waves-effect waves-light indigo white-text">CONFIRM</a>
+				<a href="#!" id="submitName" class="disabled btn modal-action modal-close waves-effect waves-light indigo white-text">CONFIRM</a>
 			</div>
 		</div>
 	</div>
-	<!--script type="text/javascript" src="./js/materialize.min.js"></script-->
 	<script type="text/javascript">
 	var player = {
 		countryName: "",
@@ -306,8 +321,14 @@
 		},
 		$development: 0,
 		$city: 0,
-	}
+	};
 	$(document).ready(function(){
+		const countryRegex = /^[a-z]+( ?[a-z]+)+ ?[a-z]$/i;
+		$('#countryInput').on('change input',function(){
+			let val = $(this).val();
+			if(val.length > 3 && val.length < 33 && countryRegex.test(val)) $('#submitName').removeClass('disabled');
+			else $('#submitName').addClass('disabled');
+		});
 		$('#join').on('click',function(){
 			$('#home').animate({"left": "-100%"}, 400);
 			$('#game').animate({"left": "0"}, 400);
@@ -315,15 +336,12 @@
 				if(player.countryName && $('#countryInput').val().trim() == '') return;
 				if($('#countryInput').val().trim() == '') player.countryName = word(2,1).capitalize();
 				else player.countryName = $('#countryInput').val().capitalize();
-				$('#countryInput').val(player.countryName);
-				$('#countryName').text(' ' + player.countryName + ': ');
-				Materialize.updateTextFields();
+				$('#countryName').text(' ' + player.countryName);
+				$('#countryModal').remove();
+				// TODO: Send country object to server
 			}});
 			$('#countryModal').modal('open');
 			$('#action,#navigator').fadeIn(400);
-		});
-		$('#countryName').on('click',function(){
-			$('#countryModal').modal('open');
 		});
 		//$('#chatBtn').sideNav({menuWidth: 360, edge: 'right', closeOnClick: false});
 		$('#closeChat').on('click',function(){
@@ -336,10 +354,17 @@
 		});
 		$('#generateName').on('click',function(){
 			$('#countryInput').val(word(2,1).capitalize());
+			$('#submitName').removeClass('disabled');
 			Materialize.updateTextFields();
 		});
 		Materialize.updateTextFields();
+		$(window).on('resize',canvasSize);
 	});
+	function canvasSize(){
+		c.width = $('#c').width();
+		c.height = $('#c').height();
+	}
+	canvasSize();
 	//var t = c.getContext('2d');
 	/* // Code for room joining/creating
 	function onWebSocketConnect(){
@@ -375,6 +400,25 @@
 		});
 	});
 	//*/
+	var t = c.getContext('2d'), mapData = [], matrix = [1,0,0,1,0,0];
+	for(var i = 0; i < 31; i++){
+		for(var j = 0, k = 31 - Math.abs(i - 15); j < k; j++){
+
+		}
+	}
+	function drawHex(x, y, color) {
+		t.beginPath();
+		t.moveTo(x + 25, y);
+		for(var i=1;i<6;i++){
+			t.lineTo(x + Math.cos(Math.PI * i / 3) * 25, y + Math.sin(Math.PI * i / 3) * 25);
+		}
+		t.fillStyle = color || '#0035cf';
+		t.fill();
+	}
+	const cube2Axial = (x, y, z) => [x, z],
+		axial2Cube = (q, r) => [q, r, -q - r],
+		cube2Offset = (x, y, z) => [x, z + (x + (x & 1)) / 2],
+		offset2Cube = (col, row) => [col, (col + (col & 1)) / 2 - row - col, row - (col + (col & 1)) / 2];
 	</script>
 </body>
 </html>
