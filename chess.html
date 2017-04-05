@@ -15,309 +15,394 @@
 	.white, .black { position: absolute; width: 10vh; height: 10vh; padding: 2vh 0; border-radius: 5vh; left: 50%;
 		top: 50%; margin: -5vh; font-size: 4vh; text-align: center; box-sizing: border-box; border: .5vh solid #7F7F7F; }
 	.black { background-color: #111; color: #EEE; } .white { background-color: #EEE; color: #111; }
+	.white::before, .black::before {
+		content: ""; display: inline-block; left: 50%; top: 50%; width: 12vh; height: 12vh; margin: -6vh;
+		background-color: transparent; position: absolute; z-index: 4;
+	}
 	.inf::after { content: "INF";	} .min::after { content: "MIN";	} .tnk::after { content: "TNK";	}
 	.art::after { content: "ART";	} .cru::after { content: "CRU";	} .des::after { content: "DES";	}
 	.bts::after { content: "BTS";	} .acc::after { content: "ACC";	} .sub::after { content: "SUB";	}
 	.ftr::after { content: "FTR";	} .bmb::after { content: "BMB";	} .hel::after { content: "HEL";	}
 	.tra::after { content: "TRA";	}
+	#info { position: absolute; right: 0; }
+	#controls { position: absolute; left: 100vh; top: 25vh; bottom: 25vh; width: 25vh; }
+	#controls>input { width: 25vh; box-sizing: border-box; text-align: center; }
 	</style>
 </head>
 <body>
 	<div id="chessboard"></div>
+	<div id="controls">
+		<input type="button" value="Propose ceasefire" id="ceasefire" /><br />
+		<input type="button" value="Retreat" id="retreat" /><br />
+		<input type="button" value="Surrender" id="surrender" />
+	</div>
+	<div id="info"></div>
 	<script type="text/javascript">
 	"use strict";
-	const board = new Array(8).fill(new Array(8)), letters = "abcdefgh",
-	getSquare = (x, y) => document.getElementById(letters[y] + (8 - x));
-	for (let i = 0; i < 8; i++) {
+	const board = [], letters = "abcdefgh",
+	// get square div element by x, y
+	getSquare = (x, y) => document.getElementById(letters[x] + (8 - y)),
+	// get x, y by square div element
+	getXY = squ => [squ.id.charCodeAt(0) - 97, 8 - squ.id.slice(1)],
+	// get content: 0 = empty, 1 = same color, -1 = opposite color. Color param is optional.
+	// hack: +!! convers undefined to 0 and any object to 1
+	getBoardContent = (x, y, color) => +!!board[x][y] && (board[x][y].color == color) * 2 - 1,
+	showValidMoves = arr => {
+		for(let i = 0, l = arr.length; i < l; i++){
+			getSquare.apply(null, arr[i]).classList.add('valid');
+		}
+	},
+	clearValidMoves = () => {
+		for(let v = document.getElementsByClassName('valid'); v.length;)
+			v[0].classList.remove('valid'); // hack: do not increment 0 because v updates dynamically
+		pieceSelected = null;
+	},
+	assertEqual = (a, b) => a >= b && b >= a,
+	movePiece = (x, y, x1, y1) => { // sync to html board
+	  let squ = getSquare(x, y), squ1 = getSquare(x1, y1);
+	  // Must assume move is correct; cannot doublecheck by getBoardContent because it already changed.
+	  // don't specify x1 to simply kill the piece
+	  if(x1 == undefined) return squ.removeChild(squ.children[0]);
+	  if(squ1.children.length) squ1.removeChild(squ1.children[0]);
+	  squ1.appendChild(squ.removeChild(squ.children[0]));
+	  clearValidMoves(); // This is where it really should be
+	}, searchCross = (x, y, color, range) => {
+		let arr = [];
+		for(let i = x - 1, m = Math.max(0, x - range); i >= m; i--){
+	  	let content = getBoardContent(i, y, color);
+	  	if(content == 1) break;
+	    arr.push([i, y]);
+	    if(content == -1) break;
+	  }
+	  for(let i = x + 1, m = Math.min(7, x + range); i <= m; i++){
+	  	let content = getBoardContent(i, y, color);
+	    if(content == 1) break;
+	    arr.push([i, y]);
+	    if(content == -1) break;
+	  }
+	  for(let j = y - 1, n = Math.max(0, y - range); j >= n; j--){
+	  	let content = getBoardContent(x, j, color);
+	    if(content == 1) break;
+	    arr.push([x, j]);
+	    if(content == -1) break;
+	  }
+	  for(let j = y + 1, n = Math.min(7, y + range); j <= n; j++){
+	  	let content = getBoardContent(x, j, color);
+	    if(content == 1) break;
+	    arr.push([x, j]);
+	    if(content == -1) break;
+	  }
+	  return arr;
+	}, searchDiagonal = (x, y, color, range) => {
+		let arr = [];
+		for(let r = 1, m = Math.min(x, y, range); r <= m; r++){
+	  	let content = getBoardContent(x - r, y - r, color);
+	    if(content == 1) break;
+	    arr.push([x - r, y - r]);
+	    if(content == -1) break;
+	  }
+	  for(let r = 1, m = Math.min(7 - x, y, range); r <= m; r++){
+	  	let content = getBoardContent(x + r, y - r, color);
+	    if(content == 1) break;
+	    arr.push([x + r, y - r]);
+	    if(content == -1) break;
+	  }
+	  for(let r = 1, m = Math.min(7 - x, 7 - y, range); r <= m; r++){
+	  	let content = getBoardContent(x + r, y + r, color);
+	    if(content == 1) break;
+	    arr.push([x + r, y + r]);
+	    if(content == -1) break;
+	  }
+	  for(let r = 1, m = Math.min(x, 7 - y, range); r <= m; r++){
+	  	let content = getBoardContent(x - r, y + r, color);
+	    if(content == 1) break;
+	    arr.push([x - r, y + r]);
+	    if(content == -1) break;
+	  }
+	  return arr;
+	}, searchKnight = (x, y, color) => {
+		let arr = [];
+		for(let i = -2; i < 3; i += 4){
+	  	let x1 = x + i, y1 = y + i;
+	    if(x1 >= 0 && x1 < 8 && y > 0 && getBoardContent(x1, y - 1, color) < 1) arr.push([x1, y - 1]);
+	    if(x1 >= 0 && x1 < 8 && y < 7 && getBoardContent(x1, y + 1, color) < 1) arr.push([x1, y + 1]);
+	    if(y1 >= 0 && y1 < 8 && x > 0 && getBoardContent(x - 1, y1, color) < 1) arr.push([x - 1, y1]);
+	    if(y1 >= 0 && y1 < 8 && x < 7 && getBoardContent(x + 1, y1, color) < 1) arr.push([x + 1, y1]);
+	  }
+	  return arr;
+	};
+	let pieceSelected = null;
+	for(let i = 0; i < 8; i++) {
 		let row = document.createElement('div');
 		row.className = "row";
-		for (let j = 0; j < 8; j++) {
-			let square = document.createElement('div');
-			square.className = "square";
-			square.id = letters[j] + (8 - i);
-			square.tabIndex = i * 8 + j + 1;
-			row.appendChild(square);
+		for(let j = 0; j < 8; j++) {
+			let squ = document.createElement('div');
+			squ.className = "square";
+			squ.id = letters[j] + (8 - i);
+			squ.tabIndex = i * 8 + j + 1;
+	    squ.addEventListener('click',function(e){
+	    	let arr = getXY(this);
+	    	info.innerText = arr + ' ' + this.id;
+	    	if(pieceSelected && this.classList.contains('valid')){
+	    		pieceSelected.move(arr[0], arr[1]);
+	    		pieceSelected = null;
+	    	}else if(getBoardContent(arr[0], arr[1], Game.turn) == 1){
+	    		clearValidMoves();
+	    		pieceSelected = board[arr[0]][arr[1]];
+	    		showValidMoves(
+	    			pieceSelected.getMoves().filter(arr => getBoardContent.apply(null, arr) == 0).concat(
+	    				pieceSelected.getSupports().filter(arr => getBoardContent.apply(null, arr) == -1)
+	    			)
+	    		);
+	    	}
+	    }, true);
+			row.appendChild(squ);
 		}
+		board[i] = new Array(8);
 		chessboard.appendChild(row);
 	}
-	chessboard.addEventListener('click', function(e) {
-		let squ = e.target, piece;
-		if (!squ.id) { // Error 404: Squid not found
-			piece = squ;
-			squ = piece.parentNode;
-		}
-	}, true);
 	class Piece {
 	  constructor(x, y, type, color) {
+	  	let square = getSquare(x, y);
+	    if(square.children.length) throw new Error('Square is already occupied');
 	    this.x = x;
 	    this.y = y;
+	    this.color = color;
+	    this.attackPower = 1;
+	    /* // experimental: do not connect piece object to html elements.
+	    // movements should be made on the 2D array and synced to the html board.
 	    this.elm = document.createElement('div');
 	    this.elm.className = type + ' ' + color;
-	    let square = getSquare(x, y);
-	    if(square.children.length) throw new Error('Square is already occupied');
-	    square.appendChild(this.elm);
+	    // */
+	    let elm = document.createElement('div');
+	    elm.className = type + ' ' + color;
+	    square.appendChild(elm);
+	    return board[x][y] = this;
 	  }
 	  move(x, y) {
-	    getSquare(this.x, this.y).removeChild(this.elm);
-	    this.x = x;
-	    this.y = y;
-	    let newSquare = getSquare(x, y);
-	    if(square.children.length) return "Invalid move";
-	    newSquare.appendChild(this.elm);
+	  	if(x < 0 || x > 7 || y < 0 || y > 7) throw new Error('Invalid square');
+	  	let content = getBoardContent(x, y, this.color)
+	  	if(content == 1) throw new Error('Invalid move');
+	  	if(content == 0){
+	  		board[x][y] = this;
+	  		delete board[this.x][this.y];
+	  		movePiece(this.x, this.y, x, y);
+	  		this.x = x;
+	  		this.y = y;
+	  	} else {
+	  		let supports = Game[this.color], attackPower = 0;
+	  		for(let i = 0, l = supports.length; i < l; i++)
+	  			attackPower += supports[i].support(x, y);
+	  		if(attackPower + 0.5 >= board[x][y].attackPower){
+	  			board[x][y].die();
+	  			board[x][y] = this;
+	  			delete board[this.x][this.y];
+	  			movePiece(this.x, this.y, x, y);
+	  			this.x = x;
+	  			this.y = y;
+	  		} else {
+	  			this.die();
+	  			delete board[this.x][this.y];
+	  			movePiece(this.x, this.y);
+	  		}
+	  	}
+	  	Game.turn = Game.turn == 'white' ? 'black' : 'white';
 	  }
-	  attack(x, y) {
-	  	let support;
+	  die() {
+	  	delete this;
 	  }
-	  get validMoves() { return []; }
-	  get supportedMoves() { return []; }
+	  support(x, y){
+	  	let moves = this.getSupports(), squ = [x, y];
+	  	while(moves.length){
+	  		if(assertEqual(moves.pop(), squ)) return this.attackPower;
+	  	}
+	  	return 0;
+	  }
+	  getSupports() { return []; }
+	  getMoves() { return []; }
 	}
 	class Infantry extends Piece {
 	  constructor(x, y, color) {
 			super(x, y, 'inf', color);
-			this.attacksToKill = 1;
-			this.price = {
-				dev : 2, //further balancing needed; all non-inf prices taken from manual
-				steel : 0, //and are not intended to be definite
-				oil : 0
-			}
+			this.attackPower = 0.5;
 		}
-	  get validMoves() {
-	    return getValidMoves(this.x, this.y, 1, 0);
+		getSupports() {
+			return searchDiagonal(this.x, this.y, this.color, 1);
+		}
+	  getMoves() {
+	  	return searchCross(this.x, this.y, this.color, 1);
+	  	// blitz = searchCross(this.x, this.y, this.color, 7).filter()
 	  }
-		get validAttacks() {
-			return getValidMoves(this.x, this.y, 0, 1);
-		}
 	}
 	class MechanizedInfantry extends Piece {
 	  constructor(x, y, color) {
 			super(x, y, 'min', color);
-			this.attacksToKill = 1;
-			this.price = {
-				dev : 2,
-				steel : 1,
-				oil : 0
-			}
 		}
-	  get validMoves() {
-	    return getValidMoves(this.x, this.y, 0, 8);
-	  }
-		get validAttacks() {
-			return this.validMoves;
+		getSupports() {
+			return searchDiagonal(this.x, this.y, this.color, 7);
+		}
+		getMoves() {
+			return searchDiagonal(this.x, this.y, this.color, 7).concat(searchCross(this.x, this.y, this.color, 1));
 		}
 	}
 	class Tank extends Piece {
 	  constructor(x, y, color) {
 			super(x, y, 'tnk', color);
-			this.attacksToKill = 1;
-			this.price = {
-				dev : 2,
-				steel : 2,
-				oil : 0
-			}
+			this.attackPower = 1.5;
 		}
-	  get validMoves() {
-			return getValidMoves(this.x, this.y, 8, 0);
-	  }
-		get validAttacks() {return this.validMoves;}
+		getSupports() {
+			return searchCross(this.x, this.y, this.color, 7);
+		}
+		getMoves() {
+			return searchCross(this.x, this.y, this.color, 7);
+		}
 	}
 	class Artillery extends Piece {
 	  constructor(x, y, color) {
 			super(x, y, 'art', color);
-			this.attacksToKill = 1;
-			this.price = {
-				dev : 3,
-				steel : 1,
-				oil : 0
-			}
 		}
-	  get validMoves() {
-	    return getValidMoves(this.x, this.y, "knight");
-	  }
-		get validAttacks() {return this.validMoves;}
+		getSupports() {
+			return searchKnight(this.x, this.y, this.color);
+		}
+		getMoves() {
+			return searchKnight(this.x, this.y, this.color).concat([[this.x, this.y]]); // add "bombard option"
+		}
 	}
 	class Cruiser extends Piece {
 	  constructor(x, y, color) {
 			super(x, y, 'cru', color);
-			this.attacksToKill = 1;
-			this.price = {
-				dev : 2,
-				steel : 2,
-				oil : 0
-			}
 		}
-	  get validMoves() {
-			return getValidMoves(this.x, this.y, 8, 0);
-	  }
-		get validAttacks() {return this.validMoves;}
+		getSupports() {
+			return searchCross(this.x, this.y, this.color, 7);
+		}
+		getMoves() {
+			return searchCross(this.x, this.y, this.color, 7);
+		}
 	}
 	class Destroyer extends Piece {
 		constructor(x, y, color) {
 			super(x, y, 'des', color);
-			this.attacksToKill = 1;
-			this.price = {
-				dev : 2,
-				steel : 0,
-				oil : 2
-			}
 		}
-		get validMoves() {
-			return getValidMoves(this.x, this.y, 0, 8);
+		getSupports() {
+			return searchDiagonal(this.x, this.y, this.color, 7);
 		}
-		get validAttacks() {
-			return this.validMoves();
+		getMoves() {
+			return searchDiagonal(this.x, this.y, this.color, 7).concat(searchCross(this.x, this.y, this.color, 1));
 		}
 	}
 	class Battleship extends Piece {
 		constructor(x, y, color) {
 			super(x, y, 'bts', color);
-			this.attacksToKill = 2;
-			this.price = {
-				dev : 2,
-				steel : 2,
-				oil : 2
-			}
+			this.attackPower = 2.5;
 		}
-		get validMoves() {
-			return getValidMoves(this.x, this.y, "knight");
+		getSupports() {
+			return searchKnight(this.x, this.y, this.color);
 		}
-		get validAttacks() {
-			return this.validMoves();
+		getMoves() {
+			return searchKnight(this.x, this.y, this.color);
 		}
 	}
 	class AircraftCarrier extends Piece {
 		constructor(x, y, color) {
 			super(x, y, 'acc', color);
-			this.attacksToKill = 2;
-			this.price = {
-				dev : 4,
-				steel : 1,
-				oil : 3
-			}
+			this.attackPower = 2.5;
 		}
-		get validMoves() {
-			return getValidMoves(this.x, this.y, 8, 8);
+		getSupports(){
+			return searchCross(this.x, this.y, this.color, 7).concat(searchDiagonal(this.x, this.y, this.color, 7));
 		}
-		get validAttacks() {
-			return this.validMoves();
+		getMoves(){
+			return searchCross(this.x, this.y, this.color, 7).concat(searchDiagonal(this.x, this.y, this.color, 7));	
 		}
 	}
-	class Submarine extends Piece {
+	class Submarine extends Piece { // need to add in-range instakill
 		constructor(x, y, color) {
 			super(x, y, 'sub', color);
-			this.attacksToKill = 2;
-			this.price = {
-				dev : 3,
-				steel : 0,
-				oil : 3
-			}
 		}
-		get validMoves() {
-			return getValidMoves(this.x, this.y, 2, 0);
+		getSupports() {
+			return searchCross(this.x, this.y, this.color, 2);
 		}
-		get validAttacks() {
-			return this.validMoves();
+		getMoves() {
+			return searchCross(this.x, this.y, this.color, 2);
 		}
 	}
 	class Fighter extends Piece { //REMEMBER: can move past unit after killing
 		constructor(x, y, color) {
 			super(x, y, 'ftr', color);
-			this.attacksToKill = 1;
-			this.price = {
-				dev : 3,
-				steel : 0,
-				oil : 3
-			}
 		}
-		get validMoves() {
-			return getValidMoves(this.x, this.y, 8, 8);
+		getSupports(){
+			return searchCross(this.x, this.y, this.color, 7).concat(searchDiagonal(this.x, this.y, this.color, 7));
 		}
-		get validAttacks() {
-			return this.validMoves();
+		getMoves(){
+			return searchCross(this.x, this.y, this.color, 7).concat(searchDiagonal(this.x, this.y, this.color, 7));	
 		}
 	}
 	class Bomber extends Piece {
 		constructor(x, y, color) {
 			super(x, y, 'bmb', color);
-			this.attacksToKill = 1;
-			this.price = {
-				dev : 4,
-				steel : 4,
-				oil : 0
-			}
+			this.attackPower = 1.5;
 		}
-		get validMoves() {
-			return getValidMoves(this.x, this.y, 1, 0);
+		getSupports(){
+			return searchCross(this.x, this.y, this.color, 1);
 		}
-		get validAttacks() {
-			return [];
+		getMoves(){
+			return searchCross(this.x, this.y, this.color, 1);
 		}
-		get instakills() { //when running turn, maybe check if piece has .instakills prop and if so call it?
-			return getValidMoves(this.x, this.y, 1, 1); //that way not every piece needs an instakills getter
+		/* // Piece.move() should link to a search of all bombers on board and kill corresponding pieces.
+		get instakills() { //when running turn, maybe check if piece has .instakills prop and if so call it? yes.
+			return getValidMoves(this.x, this.y, 1, 1).filter(arr => isOpposite.apply(null, arr.concat([this.color]))); //that way not every piece needs an instakills getter
 		}
+		*/
 	}
 	class Transport extends Piece {
 		constructor(x, y, color) {
 			super(x, y, 'tra', color);
-			this.attacksToKill = 1;
-			this.price = {
-				dev : 5,
-				steel : 0,
-				oil : 1
-			}
 		}
-		get validMoves() {
-			return [];
+		getSupports(){
+			return []; // can't attack, no support
 		}
-		get validAttacks() {
-			return [];
+		getMoves(){
+			return searchCross(this.x, this.y, this.color, 7);
 		}
 	}
 	class Helicopter extends Piece {
 		constructor(x, y, color) {
 			super(x, y, 'hel', color);
-			this.attacksToKill = 1;
-			this.price = {
-				dev : 2,
-				steel : 0,
-				oil : 2
-			}
 		}
-		get validMoves() {
-			//?
+		getSupports(){
+			return searchKnight(this.x, this.y, this.color);
 		}
-		get validAttacks() {
-			//?
+		getMoves(){
+			return searchDiagonal(this.x, this.y, this.color, 1).concat(searchCross(this.x, this.y, this.color, 1));
 		}
 	}
-
-	function getValidMoves(x, y, s, d) { //if s == "knight" will return knight moves and ignore d
-		function isInBounds(x,y) {
-			if (x >= 0 && x < 8 && y >= 0 && y < 8) return true;
-			return false;
-		}
-		var moves = [];
-		if (s == "knight") {
-			for (let i = -2; i <= 2; i += 4) {
-				if (x + i >= 0 && y > 0) moves.push([x + i, y - 1]);
-				if (x + i < 8 && y < 7) moves.push([x + i, y + 1]);
-				if (y + i >= 0 && x > 0) moves.push([x - 1, y + i]);
-				if (y + i < 8 && x < 7) moves.push([x + 1, y + i]);
-			}
-			return moves;
-		}
-		for (var i = -d; i <= d; i++) { //diagonals (=bishop)
-			if (i != 0) {
-				if (isInBounds(x + i, y + i)) moves.push([x + i, y + i]);
-				if (isInBounds(x + i, y - i)) moves.push([x + i, y - i]);
-			}
-		}
-		for (var k = -s; k <= s; k++) { //straight (=rook)
-			if (k != 0) {
-				if (isInBounds(x + k, y)) moves.push([x + k, y]);
-				if (isInBounds(x, y + k)) moves.push([x, y + k]);
-			}
-		}
-		return moves;
-	}
+	const Game = {
+		black: [
+			new Tank(1, 1, "black"),
+			new MechanizedInfantry(2, 1, "black"),
+			new Artillery(3, 1, "black"),
+			new Helicopter(4, 1, "black"),
+			new MechanizedInfantry(5, 1, "black"),
+			new Tank(6, 1, "black"),
+			new Infantry(2, 2, "black"),
+			new Infantry(3, 2, "black"),
+			new Infantry(4, 2, "black"),
+			new Infantry(5, 2, "black"),
+			new Infantry(0, 3, "black"),
+			new Infantry(7, 3, "black"),
+		], white: [
+			new Infantry(0, 4, "white"),
+			new Infantry(7, 4, "white"),
+			new Infantry(2, 5, "white"),
+			new Infantry(3, 5, "white"),
+			new Infantry(4, 5, "white"),
+			new Infantry(5, 5, "white"),
+			new Tank(1, 6, "white"),
+			new MechanizedInfantry(2, 6, "white"),
+			new Artillery(3, 6, "white"),
+			new Helicopter(4, 6, "white"),
+			new MechanizedInfantry(5, 6, "white"),
+			new Tank(6, 6, "white"),
+		], turn: "white"
+	};
 	</script>
 </body>
