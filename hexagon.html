@@ -34,8 +34,8 @@
 		}
 		// detect available wheel event
 		support = "onwheel" in document.createElement("div") ? "wheel" : // Modern browsers support "wheel"
-				  document.onmousewheel !== undefined ? "mousewheel" : // Webkit and IE support at least "mousewheel"
-				  "DOMMouseScroll"; // let's assume that remaining browsers are older Firefox
+			document.onmousewheel !== undefined ? "mousewheel" : // Webkit and IE support at least "mousewheel"
+			"DOMMouseScroll"; // let's assume that remaining browsers are older Firefox
 		window.addWheelListener = function( elem, callback, useCapture ) {
 			_addWheelListener( elem, support, callback, useCapture );
 			// handle MozMousePixelScroll in older Firefox
@@ -68,7 +68,7 @@
 	dragStart, dragged, keyspressed=new Array(100).fill(0), scaleFactor = 1.04;
 	c.width = width; c.height = height;
 	var t = c.getContext('2d'), m = 16, hr = 5.773502691896258, // context, map size, hexradius
-	colors = ["#003fcf","#00ff3f","#cfcf00"];
+	colors = ["#003fcf","#00ff3f","#cfcf00","#7f7f7f"];
 	trackTransforms(t);
 	t.strokeStyle = "#000";
 	t.lineWidth = 0.5;
@@ -79,18 +79,21 @@
 			t.lineTo(x + Math.cos(Math.PI * i / 3) * hr, y + Math.sin(Math.PI * i / 3) * hr);
 		}
   	t.closePath();
-		//t.fillStyle = colors[rand(x,y)];
-  	//t.fill();
   	t.stroke();
 	}
-	function rand(x, y){
-		x -= 16;
-		y -= 16;
-		var w = x * x - y * y + x * y - x + y - 1 & 1023;
-		if(w < 341) return 0;
-		if(w > 682) return 1;
-		return 2;
+	function LFSR(seed){
+		var state = seed & 65535, lsb = state & 1, period = -1, polynomial = 34425;
+		function r(){
+			++period;
+			state >>>= 1;
+			state ^= -lsb & polynomial;
+			return lsb = state & 1;
+		}
+		r.byte = function(){ r(); return state & 255; }
+		r();
+		return r;
 	}
+	var r = LFSR(1);
 	function redraw(){
 		t.save();
 		t.setTransform(1,0,0,1,0,0);
@@ -98,8 +101,12 @@
 		t.restore();
 		for(var i = 0; i < m * 2 + 1; i++){
 			for(var j = 0, k = m * 2 + 1 - Math.abs(i - m); j < k; j++){
- 				var l = j + (i - m) * (i > m);
+ 				var l = j + (i - m) * (i > m), point = t.transformedPoint(lastX, lastY);
 				drawHex(l * Math.cos(-Math.PI / 6) * 10, (i + l * Math.sin(-Math.PI / 6)) * 10);
+				if(Math.hypot(l * Math.cos(-Math.PI / 6) * 10 - point.x, (i + l * Math.sin(-Math.PI / 6)) * 10 - point.y) < hr){
+ 					t.fillStyle = "#f00";
+ 					t.fill();
+ 				}
 			}
 		}
 		t.fillStyle = "#0000ff";
@@ -113,8 +120,8 @@
 		t.translate(movement * keyspressed[68],0);
 		t.translate(0,movement * keyspressed[83]);
 		var matrix = t.getTransform();
-		info.innerHTML = [matrix.a, matrix.b, matrix.c, matrix.d, matrix.e, matrix.f].map(function(n){return n.toFixed(3);}).join(' ');
-		
+		info.innerHTML = [matrix.a, matrix.b, matrix.c, matrix.d, matrix.e, matrix.f].map(function(n){return n.toFixed(3);}).join(' ') + ' ' + lastX.toFixed(3) + ' ' +  lastY.toFixed(3);
+		r = LFSR(1);
   	timer = requestAnimationFrame(redraw);
 	}
 	redraw();
