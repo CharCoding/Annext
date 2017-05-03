@@ -20,6 +20,9 @@
 		content: ""; display: inline-block; left: 50%; top: 50%; width: 12vh; height: 12vh; margin: -6vh;
 		background-color: transparent; position: absolute; z-index: 4;
 	}
+	.white::after, .black::after {
+		font-family: "Trebuchet MS";
+	}
 	.inf::after { content: "INF";	} .min::after { content: "MIN";	} .tnk::after { content: "TNK";	}
 	.art::after { content: "ART";	} .cru::after { content: "CRU";	} .des::after { content: "DES";	}
 	.bts::after { content: "BTS";	} .acc::after { content: "ACC";	} .sub::after { content: "SUB";	}
@@ -34,8 +37,8 @@
 	<div id="chessboard"></div>
 	<div id="controls">
 		<input type="button" value="Skip turn" id="skip" /><br />
-		<input type="button" value="Propose ceasefire" id="ceasefire" /><br />
-		<input type="button" value="Retreat" id="retreat" /><br />
+		<!-- input type="button" value="Propose ceasefire" id="ceasefire" /><br /-->
+		<!-- input type="button" value="Retreat" id="retreat" /><br / -->
 		<input type="button" value="Surrender" id="surrender" />
 	</div>
 	<script type="text/javascript">
@@ -56,9 +59,7 @@
 		// hack: (a > b) - (a < b) determines the direction of steps to make
 		// 1 if end > start, -1 if end < start, 0 if the same
 		let contents = [0, 0], dx = (x1 > x) - (x1 < x), dy = (y1 > y) - (y1 < y);
-		x += dx;
-		y += dy;
-		for(;x != x1 || y != y1; x += dx, y += dy) {
+		for(x += dx, y += dy; x != x1 || y != y1; x += dx, y += dy) {
 			let content = getBoardContent(x, y, color);
 			if(content == 1) contents[0]++;
 			else if(content == -1) contents[1]++;
@@ -80,80 +81,80 @@
 	},
 	assertEqual = (a, b) => a >= b && b >= a, // hack: check two arrays are identical.
 	movePiece = (x, y, x1, y1) => { // sync to html board
-	  let squ = getSquare(x, y);
-	  // Must assume move is correct; cannot doublecheck by getBoardContent because it already changed.
-	  // Please don't cheat.
-	  // leave x1 as undefined to simply kill the piece
-	  if(x1 == undefined) return squ.removeChild(squ.children[0]);
-	  let squ1 = getSquare(x1, y1);
-	  if(squ1.children.length) squ1.removeChild(squ1.children[0]);
-	  squ1.appendChild(squ.removeChild(squ.children[0]));
-	  clearValidMoves(); // This is where it really should be
+		let squ = getSquare(x, y);
+		// Must assume move is correct; cannot doublecheck by getBoardContent because it already changed.
+		// Please don't cheat.
+		// leave x1 as undefined to simply kill the piece
+		if(x1 == undefined) return squ.removeChild(squ.children[0]);
+		let squ1 = getSquare(x1, y1);
+		if(squ1.children.length) squ1.removeChild(squ1.children[0]);
+		squ1.appendChild(squ.removeChild(squ.children[0]));
+		clearValidMoves(); // This is where it really should be
 	},
 	searchCross = (x, y, color, range) => { // Piece movement listing functions
 		let arr = [];
 		for(let i = x - 1, m = Math.max(0, x - range); i >= m; i--){
-	  	let content = getBoardContent(i, y, color);
-	  	if(content == 1) break;
-	    arr.push([i, y]);
-	    if(content == -1) break;
-	  }
-	  for(let i = x + 1, m = Math.min(7, x + range); i <= m; i++){
-	  	let content = getBoardContent(i, y, color);
-	    if(content == 1) break;
-	    arr.push([i, y]);
-	    if(content == -1) break;
-	  }
-	  for(let j = y - 1, n = Math.max(0, y - range); j >= n; j--){
-	  	let content = getBoardContent(x, j, color);
-	    if(content == 1) break;
-	    arr.push([x, j]);
-	    if(content == -1) break;
-	  }
-	  for(let j = y + 1, n = Math.min(7, y + range); j <= n; j++){
-	  	let content = getBoardContent(x, j, color);
-	    if(content == 1) break;
-	    arr.push([x, j]);
-	    if(content == -1) break;
-	  }
-	  return arr;
+			let content = getBoardContent(i, y, color);
+			if(content == 1) break;
+			arr.push([i, y]);
+			if(content == -1) break;
+		}
+		for(let i = x + 1, m = Math.min(7, x + range); i <= m; i++){
+			let content = getBoardContent(i, y, color);
+			if(content == 1) break;
+			arr.push([i, y]);
+			if(content == -1) break;
+		}
+		for(let j = y - 1, n = Math.max(0, y - range); j >= n; j--){
+			let content = getBoardContent(x, j, color);
+			if(content == 1) break;
+			arr.push([x, j]);
+			if(content == -1) break;
+		}
+		for(let j = y + 1, n = Math.min(7, y + range); j <= n; j++){
+			let content = getBoardContent(x, j, color);
+			if(content == 1) break;
+			arr.push([x, j]);
+			if(content == -1) break;
+		}
+		return arr;
 	}, searchDiagonal = (x, y, color, range) => {
 		let arr = [];
 		for(let r = 1, m = Math.min(x, y, range); r <= m; r++){
-	  	let content = getBoardContent(x - r, y - r, color);
-	    if(content == 1) break;
-	    arr.push([x - r, y - r]);
-	    if(content == -1) break;
-	  }
-	  for(let r = 1, m = Math.min(7 - x, y, range); r <= m; r++){
-	  	let content = getBoardContent(x + r, y - r, color);
-	    if(content == 1) break;
-	    arr.push([x + r, y - r]);
-	    if(content == -1) break;
-	  }
-	  for(let r = 1, m = Math.min(7 - x, 7 - y, range); r <= m; r++){
-	  	let content = getBoardContent(x + r, y + r, color);
-	    if(content == 1) break;
-	    arr.push([x + r, y + r]);
-	    if(content == -1) break;
-	  }
-	  for(let r = 1, m = Math.min(x, 7 - y, range); r <= m; r++){
-	  	let content = getBoardContent(x - r, y + r, color);
-	    if(content == 1) break;
-	    arr.push([x - r, y + r]);
-	    if(content == -1) break;
-	  }
-	  return arr;
+			let content = getBoardContent(x - r, y - r, color);
+			if(content == 1) break;
+			arr.push([x - r, y - r]);
+			if(content == -1) break;
+		}
+		for(let r = 1, m = Math.min(7 - x, y, range); r <= m; r++){
+			let content = getBoardContent(x + r, y - r, color);
+			if(content == 1) break;
+			arr.push([x + r, y - r]);
+			if(content == -1) break;
+		}
+		for(let r = 1, m = Math.min(7 - x, 7 - y, range); r <= m; r++){
+			let content = getBoardContent(x + r, y + r, color);
+			if(content == 1) break;
+			arr.push([x + r, y + r]);
+			if(content == -1) break;
+		}
+		for(let r = 1, m = Math.min(x, 7 - y, range); r <= m; r++){
+			let content = getBoardContent(x - r, y + r, color);
+			if(content == 1) break;
+			arr.push([x - r, y + r]);
+			if(content == -1) break;
+		}
+		return arr;
 	}, searchKnight = (x, y, color) => {
 		let arr = [];
 		for(let i = -2; i < 3; i += 4){
-	  	let x1 = x + i, y1 = y + i;
-	    if(x1 >= 0 && x1 < 8 && y > 0 && getBoardContent(x1, y - 1, color) < 1) arr.push([x1, y - 1]);
-	    if(x1 >= 0 && x1 < 8 && y < 7 && getBoardContent(x1, y + 1, color) < 1) arr.push([x1, y + 1]);
-	    if(y1 >= 0 && y1 < 8 && x > 0 && getBoardContent(x - 1, y1, color) < 1) arr.push([x - 1, y1]);
-	    if(y1 >= 0 && y1 < 8 && x < 7 && getBoardContent(x + 1, y1, color) < 1) arr.push([x + 1, y1]);
-	  }
-	  return arr;
+			let x1 = x + i, y1 = y + i;
+			if(x1 >= 0 && x1 < 8 && y > 0 && getBoardContent(x1, y - 1, color) < 1) arr.push([x1, y - 1]);
+			if(x1 >= 0 && x1 < 8 && y < 7 && getBoardContent(x1, y + 1, color) < 1) arr.push([x1, y + 1]);
+			if(y1 >= 0 && y1 < 8 && x > 0 && getBoardContent(x - 1, y1, color) < 1) arr.push([x - 1, y1]);
+			if(y1 >= 0 && y1 < 8 && x < 7 && getBoardContent(x + 1, y1, color) < 1) arr.push([x + 1, y1]);
+		}
+		return arr;
 	}, Game = {
 		black: [], white: [], turn: "white", retreating: false
 	};
@@ -167,24 +168,19 @@
 			let squ = document.createElement('div');
 			squ.className = "square";
 			squ.id = letters[j] + (8 - i);
-			squ.tabIndex = i * 8 + j + 1;
-	    squ.addEventListener('click',function(e){
-	    	let [x, y] = getXY(this);
-	    	// arr.push(Game.turn); // add color to movement array so that spread operator can be used properly
-	    	// info.innerText = x + ', ' + y + ' ' + this.id;
-	    	if(pieceSelected && this.classList.contains('valid')){
-	    		pieceSelected.move(x, y); // doesn't matter in here because .move() only takes 2 parameters
-	    		pieceSelected = null;
-	    	}else if(getBoardContent(x, y, Game.turn) == 1){ // it is used here (x, y, color)
-	    		clearValidMoves();
-	    		pieceSelected = board[x][y];
-	    		showValidMoves(
-	    			pieceSelected.getMoves().filter(arr => getBoardContent(...arr) == 0).concat(
-	    				pieceSelected.getSupports().filter(arr => getBoardContent(...arr) == -1)
-	    			)
-	    		);
-	    	}else clearValidMoves();
-	    }, true);
+			squ.tabIndex = 0; // allow :focus
+			squ.addEventListener('click',function(e){
+				let [x, y] = getXY(this);
+				if(pieceSelected && this.classList.contains('valid')){
+					pieceSelected.move(x, y);
+					pieceSelected = null;
+				}else if(getBoardContent(x, y, Game.turn) == 1){
+					clearValidMoves();
+					pieceSelected = board[x][y];
+					// showValidMoves doesn't need to doublecheck for validity... I think...
+					showValidMoves(pieceSelected.getMoves().concat(pieceSelected.getSupports()));
+				}else clearValidMoves();
+			}, true);
 			row.appendChild(squ);
 		}
 		board[i] = new Array(8);
@@ -193,64 +189,88 @@
 
 	// PIECES CONSTRUCTORS
 	class Piece {
-	  constructor(x, y, type, color) {
-	  	let square = getSquare(x, y);
-	    if(square.children.length) throw new Error('Square is already occupied');
-	    this.x = x;
-	    this.y = y;
-	    this.color = color;
-	    this.id = Game[color].push(this) - 1; // for ease of deleting object
-	    this.attackPower = 1;
-	    let elm = document.createElement('div');
-	    elm.className = type + ' ' + color;
-	    square.appendChild(elm);
-	    return board[x][y] = this;
-	  }
-	  move(x, y) {
-	  	if(x < 0 || x > 7 || y < 0 || y > 7) throw new Error('Invalid square');
-	  	let content = getBoardContent(x, y, this.color);
-	  	if(content == 1) throw new Error('Invalid move');
-	  	if(content == 0){
-	  		board[x][y] = this;
-	  		delete board[this.x][this.y];
-	  		movePiece(this.x, this.y, x, y);
-	  		this.x = x;
-	  		this.y = y;
-	  	}else{
-	  		let supports = Game[this.color], attackPower = this.attackPower;
-	  		for(let i = 0, l = supports.length; i < l; i++)
-	  			if(supports[i] && supports[i] != this) attackPower += supports[i].support(x, y);
-	  		if(attackPower + 0.5 >= board[x][y].attackPower){
-	  			board[x][y].die();
-	  			board[x][y] = this;
-	  			delete board[this.x][this.y];
-	  			movePiece(this.x, this.y, x, y);
-	  			this.x = x;
-	  			this.y = y;
-	  		}else{
-	  			delete board[this.x][this.y];
-	  			this.die();
-	  			movePiece(this.x, this.y);
-	  		}
-	  	}
-	  	Game.turn = Game.turn == 'white' ? 'black' : 'white';
-	  }
-	  die() { delete Game[this.color][this.id]; } // only way to delete a piece, leaving holes in the array.
-	  support(x, y){
-	  	// NOTE: getSupports() defaults to "include special move", in the case of Infantry, it includes
-	  	// Blitz attacks. Make sure it doesn't by specifying excludeBlitz = true
-	  	let moves = this.getSupports(true), squ = [x, y];
-	  	while(moves.length) if(assertEqual(moves.pop(), squ)) return this.attackPower;
-	  	return 0;
-	  }
+		constructor(x, y, type, color) {
+			let square = getSquare(x, y);
+			if(square.children.length) throw new Error('Square is already occupied');
+			this.x = x;
+			this.y = y;
+			this.color = color;
+			this.id = Game[color].push(this) - 1; // for ease of deleting object
+			this.attackPower = 1;
+			let elm = document.createElement('div');
+			elm.className = type + ' ' + color;
+			square.appendChild(elm);
+			return board[x][y] = this;
+		}
+		move(x, y) {
+			if(x < 0 || x > 7 || y < 0 || y > 7) throw new Error('Invalid square');
+			let content = getBoardContent(x, y, this.color);
+			if(content == 1) throw new Error('Invalid move');
+			if(content == 0){
+				board[x][y] = this;
+				delete board[this.x][this.y];
+				movePiece(this.x, this.y, x, y);
+				this.x = x;
+				this.y = y;
+			}else{
+				let supports = Game[this.color], attackPower = this.attackPower;
+				for(let i = 0, l = supports.length; i < l; i++)
+					if(supports[i] && supports[i] != this) attackPower += supports[i].support(x, y);
+				if(attackPower + 0.5 >= board[x][y].attackPower){
+					board[x][y].die();
+					board[x][y] = this;
+					delete board[this.x][this.y];
+					movePiece(this.x, this.y, x, y);
+					this.x = x;
+					this.y = y;
+				}else{
+					this.die();
+					movePiece(this.x, this.y);
+				}
+			}
+			// Bomber instakill
+			let killedPieces = [];
+			for(let i = 0, pieces = Game.white, l = pieces.length; i < l; i++){
+				let piece = pieces[i];
+				if(piece && piece.constructor == Bomber) {
+					killedPieces = searchCross(piece.x, piece.y, piece.color, 1).concat(searchDiagonal(piece.x, piece.y, piece.color, 1)).filter(arr => getBoardContent(arr[0], arr[1], "white") < 0);
+				}
+			}
+			for(let i = 0, pieces = Game.black, l = pieces.length; i < l; i++){
+				let piece = pieces[i];
+				if(piece && piece.constructor == Bomber) {
+					killedPieces = killedPieces.concat(searchCross(piece.x, piece.y, piece.color, 1).concat(searchDiagonal(piece.x, piece.y, piece.color, 1)).filter(arr => getBoardContent(arr[0], arr[1], "black") < 0));
+				}
+			}
+			for(let i = 0, l = killedPieces.length; i < l; i++){
+				let [x, y] = killedPieces[i];
+				if(board[x][y]) {
+					movePiece(x, y);
+					board[x][y].die();
+				}
+			}
+			Game.turn = Game.turn == 'white' ? 'black' : 'white';
+		}
+		die() {
+			delete Game[this.color][this.id];
+			delete board[this.x][this.y];
+		} // only way to delete a piece, leaving holes in the array.
+		support(x, y){
+			// NOTE: getSupports() defaults to "include special move", in the case of Infantry, it includes
+			// Blitz attacks. Make sure it doesn't by specifying excludeBlitz = true
+			// Same with fighters, they cannot support if any piece is in between themselves and the destination square
+			let moves = this.getSupports(true), squ = [x, y];
+			while(moves.length) if(assertEqual(moves.pop(), squ)) return this.attackPower;
+			return 0;
+		}
 	}
 	class Infantry extends Piece {
-	  constructor(x, y, color) {
+		constructor(x, y, color) {
 			super(x, y, 'inf', color);
 			this.attackPower = 0.5;
 		}
 		getSupports(excludeBlitz) {
-			let moves = searchDiagonal(this.x, this.y, this.color, 1);
+			let moves = searchDiagonal(this.x, this.y, this.color, 1).filter(arr => getBoardContent(...arr));
 			if(excludeBlitz) return moves;
 			let infantries = Game[this.color].filter(e => e.constructor == Infantry && e != this);
 			infantries.forEach(e => {
@@ -265,52 +285,49 @@
 					}
 				}
 			});
-			return moves;
+			return moves.filter(arr => getBoardContent(...arr));
 		}
-	  getMoves() {
-	  	return searchCross(this.x, this.y, this.color, 1);
-	  }
+		getMoves() {
+			return searchCross(this.x, this.y, this.color, 1).filter(arr => !getBoardContent(...arr));
+		}
 	}
 	class MechanizedInfantry extends Piece {
-	  constructor(x, y, color) {
+		constructor(x, y, color) {
 			super(x, y, 'min', color);
 		}
 		getSupports() {
-			return searchDiagonal(this.x, this.y, this.color, 7);
+			return searchDiagonal(this.x, this.y, this.color, 7).filter(arr => getBoardContent(...arr));
 		}
 		getMoves() {
-			return searchDiagonal(this.x, this.y, this.color, 7).concat(searchCross(this.x, this.y, this.color, 1));
+			return searchDiagonal(this.x, this.y, this.color, 7).concat(searchCross(this.x, this.y, this.color, 1)).filter(arr => !getBoardContent(...arr));
 		}
 	}
 	class Tank extends Piece {
-	  constructor(x, y, color) {
+		constructor(x, y, color) {
 			super(x, y, 'tnk', color);
 			this.attackPower = 1.5;
 		}
 		getSupports(excludeBlitz) {
-			let moves = searchCross(this.x, this.y, this.color, 7);
+			let moves = searchCross(this.x, this.y, this.color, 7).filter(arr => getBoardContent(...arr));
 			if(excludeBlitz) return moves;
 			let infantries = Game[this.color].filter(e => e.constructor == Infantry);
 			infantries.forEach(e => {
 				let supports = e.getSupports(true), l = supports.length;
 				for(let i = 0; i < l; i++){
 					let [x, y] = supports[i];
-					if((x != this.x) != (y != this.y)){
-						let friend = getLineContent(this.x, this.y, x, y, this.color)[0];
-						friend || moves.push(supports[i]);
-					}
+					if((x != this.x) != (y != this.y))
+						getLineContent(this.x, this.y, x, y, this.color)[0] || moves.push(supports[i]);
 				}
 			});
 			return moves;
 		}
 		getMoves() {
-			return searchCross(this.x, this.y, this.color, 7);
+			return searchCross(this.x, this.y, this.color, 7).filter(arr => !getBoardContent(...arr));
 		}
 		move(x, y) {
 			let tx = this.x, ty = this.y, dx = (x > tx) - (x < tx), dy = (y > ty) - (y < ty),
 			infantries = searchDiagonal(x, y, this.color == 'white' ? 'black' : 'white', 1);
 			// eliminate pieces of opposite color
-			// console.log(infantries);
 			super.move(x, y);
 			for(let i = 0, l = infantries.length; i < l; i++) {
 				let [x, y] = infantries[i], piece = board[x][y];
@@ -320,7 +337,6 @@
 							if(getBoardContent(this.x, ty, this.color) == -1) {
 								movePiece(this.x, ty);
 								board[this.x][ty].die();
-								delete board[this.x][ty];
 							}
 						}
 					} else if(dy == 0) {
@@ -328,23 +344,23 @@
 							if(getBoardContent(tx, this.y, this.color) == -1) {
 								movePiece(tx, this.y);
 								board[tx][this.y].die();
-								delete board[tx][this.y];
 							}
 						}
 					}
+					return;
 				}
 			}
 		}
 	}
 	class Artillery extends Piece {
-	  constructor(x, y, color) {
+		constructor(x, y, color) {
 			super(x, y, 'art', color);
 		}
 		getSupports() {
-			return searchKnight(this.x, this.y, this.color);
+			return searchKnight(this.x, this.y, this.color).filter(arr => getBoardContent(...arr));
 		}
 		getMoves() {
-			return searchKnight(this.x, this.y, this.color);
+			return searchKnight(this.x, this.y, this.color).filter(arr => !getBoardContent(...arr));
 		}
 		move(x, y) {
 			// Too lazy to make custom prompt box; using default confirm() instead.
@@ -354,20 +370,19 @@
 			if(bombard){
 				movePiece(x, y);
 				board[x][y].die();
-				delete board[x][y];
 				Game.turn = Game.turn == 'white' ? 'black' : 'white';
 			}else super.move(x, y);
 		}
 	}
 	class Cruiser extends Piece {
-	  constructor(x, y, color) {
+		constructor(x, y, color) {
 			super(x, y, 'cru', color);
 		}
 		getSupports() {
-			return searchCross(this.x, this.y, this.color, 7);
+			return searchCross(this.x, this.y, this.color, 7).filter(arr => getBoardContent(...arr));
 		}
 		getMoves() {
-			return searchCross(this.x, this.y, this.color, 7);
+			return searchCross(this.x, this.y, this.color, 7).filter(arr => !getBoardContent(...arr));
 		}
 	}
 	class Destroyer extends Piece {
@@ -375,10 +390,10 @@
 			super(x, y, 'des', color);
 		}
 		getSupports() {
-			return searchDiagonal(this.x, this.y, this.color, 7);
+			return searchDiagonal(this.x, this.y, this.color, 7).filter(arr => getBoardContent(...arr));
 		}
 		getMoves() {
-			return searchDiagonal(this.x, this.y, this.color, 7).concat(searchCross(this.x, this.y, this.color, 1));
+			return searchDiagonal(this.x, this.y, this.color, 7).concat(searchCross(this.x, this.y, this.color, 1)).filter(arr => !getBoardContent(...arr));
 		}
 	}
 	class Battleship extends Piece {
@@ -387,10 +402,10 @@
 			this.attackPower = 2.5;
 		}
 		getSupports() {
-			return searchKnight(this.x, this.y, this.color);
+			return searchKnight(this.x, this.y, this.color).filter(arr => getBoardContent(...arr));
 		}
 		getMoves() {
-			return searchKnight(this.x, this.y, this.color);
+			return searchKnight(this.x, this.y, this.color).filter(arr => !getBoardContent(...arr));
 		}
 	}
 	class AircraftCarrier extends Piece {
@@ -399,10 +414,10 @@
 			this.attackPower = 2.5;
 		}
 		getSupports(){
-			return searchCross(this.x, this.y, this.color, 7).concat(searchDiagonal(this.x, this.y, this.color, 7));
+			return searchCross(this.x, this.y, this.color, 7).concat(searchDiagonal(this.x, this.y, this.color, 7)).filter(arr => getBoardContent(...arr));
 		}
 		getMoves(){
-			return searchCross(this.x, this.y, this.color, 7).concat(searchDiagonal(this.x, this.y, this.color, 7));	
+			return searchCross(this.x, this.y, this.color, 7).concat(searchDiagonal(this.x, this.y, this.color, 7)).filter(arr => !getBoardContent(...arr));	
 		}
 	}
 	class Submarine extends Piece { // need to add in-range instakill
@@ -410,22 +425,90 @@
 			super(x, y, 'sub', color);
 		}
 		getSupports() {
-			return searchCross(this.x, this.y, this.color, 2);
+			return searchCross(this.x, this.y, this.color, 2).filter(arr => getBoardContent(...arr));
 		}
 		getMoves() {
-			return searchCross(this.x, this.y, this.color, 2);
+			return searchCross(this.x, this.y, this.color, 2).filter(arr => !getBoardContent(...arr));
 		}
 	}
-	class Fighter extends Piece { //REMEMBER: can move past unit after killing
+	class Fighter extends Piece {
 		constructor(x, y, color) {
 			super(x, y, 'ftr', color);
 		}
-		getSupports(){
-			return searchCross(this.x, this.y, this.color, 7).concat(searchDiagonal(this.x, this.y, this.color, 7));
-			// let moves = [];
+		getSupports(excludeJumps){ // TODO: Move "move only" moves to getMoves() // Sorry, but WHAT?
+			if(excludeJumps) return searchCross(this.x, this.y, this.color, 7).concat(searchDiagonal(this.x, this.y, this.color, 7)).filter(arr => getBoardContent(...arr));
+			let arr = [], x = this.x, y = this.y, color = this.color;
+			for(let i = x - 1, m = Math.max(0, x - 7), p = 0; i >= m; i--){
+				let content = getBoardContent(i, y, color);
+				if(content){
+					if(++p == 2) break;
+					if(content == -1) arr.push([i, y]);
+				} else arr.push([i, y]);
+			}
+			for(let i = x + 1, m = Math.min(7, x + 7), p = 0; i <= m; i++){
+				let content = getBoardContent(i, y, color);
+				if(content){
+					if(++p == 2) break;
+					if(content == -1) arr.push([i, y]);
+				} else arr.push([i, y]);
+			}
+			for(let j = y - 1, n = Math.max(0, y - 7), p = 0; j >= n; j--){
+				let content = getBoardContent(x, j, color);
+				if(content){
+					if(++p == 2) break;
+					if(content == -1) arr.push([x, j]);
+				} else arr.push([x, j]);
+			}
+			for(let j = y + 1, n = Math.min(7, y + 7), p = 0; j <= n; j++){
+				let content = getBoardContent(x, j, color);
+				if(content){
+					if(++p == 2) break;
+					if(content == -1) arr.push([x, j]);
+				} else arr.push([x, j]);
+			}
+			for(let r = 1, m = Math.min(x, y, 7), p = 0; r <= m; r++){
+				let content = getBoardContent(x - r, y - r, color);
+				if(content){
+					if(++p == 2) break;
+					if(content == -1) arr.push([x - r, y - r]);
+				} else arr.push([x - r, y - r]);
+			}
+			for(let r = 1, m = Math.min(7 - x, y, 7), p = 0; r <= m; r++){
+				let content = getBoardContent(x + r, y - r, color);
+				if(content){
+					if(++p == 2) break;
+					if(content == -1) arr.push([x + r, y - r]);
+				} else arr.push([x + r, y - r]);
+			}
+			for(let r = 1, m = Math.min(7 - x, 7 - y, 7), p = 0; r <= m; r++){
+				let content = getBoardContent(x + r, y + r, color);
+				if(content){
+					if(++p == 2) break;
+					if(content == -1) arr.push([x + r, y + r]);
+				} else arr.push([x + r, y + r]);
+			}
+			for(let r = 1, m = Math.min(x, 7 - y, 7), p = 0; r <= m; r++){
+				let content = getBoardContent(x - r, y + r, color);
+				if(content){
+					if(++p == 2) break;
+					if(content == -1) arr.push([x - r, y + r]);
+				} else arr.push([x - r, y + r]);
+			}
+			return arr;
 		}
 		getMoves(){
-			return searchCross(this.x, this.y, this.color, 7).concat(searchDiagonal(this.x, this.y, this.color, 7));	
+			return []; // unless absolutely necessary, just use getSupports() for now. It's almost the same thing.
+			// return searchCross(this.x, this.y, this.color, 7).concat(searchDiagonal(this.x, this.y, this.color, 7));
+		}
+		move(x, y){
+			let tx = this.x, ty = this.y, dx = (x > tx) - (x < tx), dy = (y > ty) - (y < ty);
+			super.move(x, y); // Note: this does not check if the fighter jumped over only 1 enemy piece
+			for(tx += dx, ty += dy; tx != this.x || ty != this.y; tx += dx, ty += dy) {
+				if(getBoardContent(tx, ty, this.color) == -1) {
+					movePiece(tx, ty);
+					board[tx][ty].die();
+				}
+			}
 		}
 	}
 	class Bomber extends Piece {
@@ -438,13 +521,8 @@
 			return []; // bomber's surrounding is always empty.
 		}
 		getMoves(){
-			return searchCross(this.x, this.y, this.color, 1);
+			return searchCross(this.x, this.y, this.color, 1).concat(searchDiagonal(this.x, this.y, this.color, 1)).filter(arr => !getBoardContent(...arr));
 		}
-		/* // Piece.move() should link to a search of all bombers on board and kill corresponding pieces.
-		get instakills() { //when running turn, maybe check if piece has .instakills prop and if so call it? yes.
-			return getValidMoves(this.x, this.y, 1, 1).filter(arr => isOpposite.apply(null, arr.concat([this.color]))); //that way not every piece needs an instakills getter
-		}
-		*/
 	}
 	class Transport extends Piece {
 		constructor(x, y, color) {
@@ -454,7 +532,7 @@
 			return []; // can't attack, no support
 		}
 		getMoves(){
-			return searchCross(this.x, this.y, this.color, 7);
+			return searchCross(this.x, this.y, this.color, 7).filter(arr => !getBoardContent(...arr));
 		}
 	}
 	class Helicopter extends Piece {
@@ -462,10 +540,10 @@
 			super(x, y, 'hel', color);
 		}
 		getSupports(){
-			return searchKnight(this.x, this.y, this.color);
+			return searchKnight(this.x, this.y, this.color).filter(arr => getBoardContent(...arr));;
 		}
 		getMoves(){
-			return searchDiagonal(this.x, this.y, this.color, 1).concat(searchCross(this.x, this.y, this.color, 1));
+			return searchDiagonal(this.x, this.y, this.color, 1).concat(searchCross(this.x, this.y, this.color, 1)).filter(arr => !getBoardContent(...arr));;
 		}
 	}
 
@@ -473,12 +551,14 @@
 	skip.addEventListener('click',function(e){
 		Game.turn = Game.turn == 'white' ? 'black' : 'white';
 	});
+	/* // need actual game to be working
 	ceasefire.addEventListener('click',function(e){
 
 	});
 	retreat.addEventListener('click',function(e){
-		Game.retreating = true; // Uhhh
+		Game.retreating = true; // Uhhh... And??
 	});
+	*/
 	surrender.addEventListener('click',function(e){
 		for(let i = 0; i < 8; i++){
 			for(let j = 0; j < 8; j++){
@@ -490,47 +570,47 @@
 			}
 		}
 	});
-	//*
-	new Tank(1, 0, "black");
-	new Tank(6, 0, "black");
-	new Transport(1, 1, "black");
-	new MechanizedInfantry(2, 1, "black");
-	new Artillery(3, 1, "black");
-	new Helicopter(4, 1, "black");
-	new MechanizedInfantry(5, 1, "black");
-	new Transport(6, 1, "black");
-	new Infantry(2, 2, "black");
-	new Infantry(3, 2, "black");
-	new Infantry(4, 2, "black");
-	new Infantry(5, 2, "black");
-	new Infantry(0, 3, "black");
-	new Infantry(7, 3, "black");
-
-	new Infantry(0, 4, "white");
-	new Infantry(7, 4, "white");
-	new Infantry(2, 5, "white");
-	new Infantry(3, 5, "white");
-	new Infantry(4, 5, "white");
-	new Infantry(5, 5, "white");
-	new Transport(1, 6, "white");
-	new MechanizedInfantry(2, 6, "white");
-	new Artillery(3, 6, "white");
-	new Helicopter(4, 6, "white");
-	new MechanizedInfantry(5, 6, "white");
-	new Transport(6, 6, "white");
-	new Tank(1, 7, "white");
-	new Tank(6, 7, "white");
+	/* Test case: Fighter jump
+	new Fighter(0, 7, "white");
+	new Fighter(7, 7, "white");
+	new Tank(3, 4, "black");
+	new Tank(4, 4, "white");
+	new Infantry(0, 0, "black");
+	new Infantry(7, 0, "black");
+	new Infantry(0, 4, "black");
 	//*/
-	/*
-	new Infantry(0, 1, "white");
-	new Infantry(1, 7, "white");
-	new Infantry(2, 2, "white");
-	new Infantry(0, 6, "white");
-	new Infantry(2, 6, "black");
-	new Tank(1, 0, "black");
-	new Tank(1, 3, "black");
-	new Tank(1, 5, "white");
-	new Artillery(3, 4, "white");
+	/* Test case: Submarine interception
+	new Submarine(0, 2, "white");
+	new Destroyer(2, 0, "white");
+	new Cruiser(2, 7, "black");
+	//*/
+	/* Test case: Bomber autokill
+	new Bomber(1, 1, "black");
+	new Infantry(2, 2, "black");
+	new Bomber(1, 6, "white");
+	new Bomber(2, 5, "white");
+	//*/
+	//* Standard setup
+	for(let i = 0; i < 8; i++){
+		new Infantry(i, 1, "black");
+		new Infantry(i, 6, "white");
+	}
+	new Tank(0, 0, "black");
+	new Artillery(1, 0, "black");
+	new MechanizedInfantry(2, 0, "black");
+	new Fighter(3, 0, "black");
+	new Bomber(4, 0, "black");
+	new MechanizedInfantry(5, 0, "black");
+	new Artillery(6, 0, "black");
+	new Tank(7, 0, "black");
+	new Tank(0, 7, "white");
+	new Artillery(1, 7, "white");
+	new MechanizedInfantry(2, 7, "white");
+	new Fighter(3, 7, "white");
+	new Bomber(4, 7, "white");
+	new MechanizedInfantry(5, 7, "white");
+	new Artillery(6, 7, "white");
+	new Tank(7, 7, "white");
 	//*/
 	</script>
 </body>
