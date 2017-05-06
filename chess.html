@@ -11,7 +11,7 @@
 	.row:nth-child(even)>.square:nth-child(even), .row:nth-child(odd)>.square:nth-child(odd) { background-color: #EEE; }
 	.row:nth-child(odd)>.square:nth-child(even), .row:nth-child(even)>.square:nth-child(odd) { background-color: #111; }
 	.valid::after, .invalid::after { content: ""; position: absolute; left: 50%; top: 50%; width: 2vh; height: 2vh; border-radius: 1vh; margin: -1vh;	}
-	.valid::after{ background-color: rgba(0, 216, 54, 0.66) !important; }
+	.valid::after{ background-color: rgba(0, 216, 54, 0.66); }
 	.invalid::after{ background-color: rgba(216, 54, 0, 0.66); }
 	.white, .black { position: absolute; width: 10vh; height: 10vh; padding: 2vh 0; border-radius: 5vh; left: 50%;
 		top: 50%; margin: -5vh; font-size: 4vh; text-align: center; box-sizing: border-box; border: .5vh solid #7F7F7F; }
@@ -20,33 +20,34 @@
 		content: ""; display: inline-block; left: 50%; top: 50%; width: 12vh; height: 12vh; margin: -6vh;
 		background-color: transparent; position: absolute; z-index: 4;
 	}
-	.white::after, .black::after {
-		font-family: "Trebuchet MS";
-	}
+	.white::after, .black::after { font-family: "Trebuchet MS"; }
 	.inf::after { content: "INF";	} .min::after { content: "MIN";	} .tnk::after { content: "TNK";	}
 	.art::after { content: "ART";	} .cru::after { content: "CRU";	} .des::after { content: "DES";	}
 	.bts::after { content: "BTS";	} .acc::after { content: "ACC";	} .sub::after { content: "SUB";	}
 	.ftr::after { content: "FTR";	} .bmb::after { content: "BMB";	} .hel::after { content: "HEL";	}
 	.tra::after { content: "TRA";	} /* WHERE R MY ICONS */
-	#info { position: absolute; right: 0; }
+	#pieceHolder { position: absolute; left: 2vh; top: 2vh; width: 96vh; height: 48vh; background-color: #111; }
+	#pieceHolder>div { position: relative; display: inline-block; left: 0; top: 0; margin: 1vh; }
 	#controls { position: absolute; left: 100vh; top: 25vh; bottom: 25vh; width: 25vh; }
 	#controls>input { width: 25vh; box-sizing: border-box; text-align: center; margin: .5vh 0; }
 	</style>
 </head>
 <body>
 	<div id="chessboard"></div>
+	<div id="pieceHolder"></div>
 	<div id="controls">
-		<input type="button" value="Skip turn" id="skip" /><br />
-		<!-- input type="button" value="Propose ceasefire" id="ceasefire" /><br /-->
-		<!-- input type="button" value="Retreat" id="retreat" /><br / -->
-		<input type="button" value="Surrender" id="surrender" />
+		<input type="button" value="Reset" id="reset" /><br />
+		<input type="button" disabled="disabled" value="Ready" id="ready" /><br />
+		<input type="button" disabled="disabled" value="Skip turn" id="skip" /><br />
+		<input type="button" disabled="disabled" value="Retreat" id="retreat" /><br />
+		<input type="button" disabled="disabled" value="Surrender" id="surrender" />
 	</div>
 	<script type="text/javascript">
 	// TODO: When program is finished wrap everything in anonymous function to keep global clean
 	"use strict";
 	// CONSTANTS, API FUNCTIONS, ETC.
 	const board = new Array(8), letters = "abcdefgh",
-	getSquare = (x, y) => document.getElementById(letters[x] + (8 - y)), // get square div element by x, y
+	getSquare = (x, y) => typeof x == "number" ? document.getElementById(letters[x] + (8 - y)) : pieceHolder, // get square div element by x, y
 	getXY = squ => [squ.id.charCodeAt(0) - 97, 8 - squ.id.slice(1)], // get x, y by square div element
 
 	// getBoardContent: 0 = empty, 1 = same color, -1 = opposite color. Color param is optional.
@@ -69,6 +70,8 @@
 	showValidMoves = moves => {
 		for(let i = 0, l = moves.length; i < l; i++)
 			getSquare(...moves[i]).classList.add('valid'); // fn(...arr): spread operator
+		// if(!Game.started) pieceHolder.classList.add('valid'); // there's the reset button...
+		// I don't wanna bother coding putting a piece back into the holder...
 	},
 	clearValidMoves = () => {
 		for(let v = document.getElementsByClassName('valid'); v.length;)
@@ -81,7 +84,13 @@
 	},
 	assertEqual = (a, b) => a >= b && b >= a, // hack: check two arrays are identical.
 	movePiece = (x, y, x1, y1) => { // sync to html board
+		clearValidMoves();
 		let squ = getSquare(x, y);
+		if(!squ) { // if square is not found, must be moving from pieceHolder (I hope...)
+			getSquare(x1, y1).appendChild(pieceHolder.removeChild(pieceHolder.querySelector('.selected'))).classList.remove('selected');
+			ready.disabled = pieceHolder.children.length != 0; // enable ready button when pieceHolder is empty
+			return;
+		}
 		// Must assume move is correct; cannot doublecheck by getBoardContent because it already changed.
 		// Please don't cheat.
 		// leave x1 as undefined to simply kill the piece
@@ -89,7 +98,6 @@
 		let squ1 = getSquare(x1, y1);
 		if(squ1.children.length) squ1.removeChild(squ1.children[0]);
 		squ1.appendChild(squ.removeChild(squ.children[0]));
-		clearValidMoves(); // This is where it really should be
 	},
 	searchCross = (x, y, color, range) => { // Piece movement listing functions
 		let arr = [];
@@ -156,7 +164,19 @@
 		}
 		return arr;
 	}, Game = {
-		black: [], white: [], turn: "white", retreating: false
+		black: [], white: [], turn: "white", started: false, doubleMove: false, retreating: false,
+		init: function(black, white){
+			// for now
+		},
+		transfer: function(black){
+			/* for later, receiving opponent's board setup via WebSocket
+			 * How it works (IN THEORY): Both players will see their side as having white pieces.
+			 * Moves are inverted and then sent to the opponent, so it renders from the opposite side.
+			 */ 
+		}, count: function(color){
+			// hack: get rid of undefined indices by .join(""), "[object Object]" is 15 characters long.
+			return Game[color].join("").length / 15;
+		}
 	};
 
 	// Initialize board, piece movement event listeners
@@ -178,7 +198,12 @@
 					clearValidMoves();
 					pieceSelected = board[x][y];
 					// showValidMoves doesn't need to doublecheck for validity... I think...
-					showValidMoves(pieceSelected.getMoves().concat(pieceSelected.getSupports()));
+					if(Game.started) showValidMoves(pieceSelected.getMoves().concat(pieceSelected.getSupports()));
+					else {
+						for(let k = 0; k < 8; k++){
+							for(let l = 0; l < 8; l++) getBoardContent(k, l) || getSquare(k, l).classList.add('valid');
+						}
+					}
 				}else clearValidMoves();
 			}, true);
 			row.appendChild(squ);
@@ -190,25 +215,35 @@
 	// PIECES CONSTRUCTORS
 	class Piece {
 		constructor(x, y, type, color) {
-			let square = getSquare(x, y);
-			if(square.children.length) throw new Error('Square is already occupied');
-			this.x = x;
-			this.y = y;
+			if(typeof x == "string") { // place piece into pieceHolder
+				var square = pieceHolder;
+				color = x;
+				this.x = this.y = 8; // Uhhh
+			} else {
+				var square = getSquare(x, y);
+				if(square.children.length) throw new Error('Square is already occupied');
+				this.x = x;
+				this.y = y;
+			}
 			this.color = color;
 			this.id = Game[color].push(this) - 1; // for ease of deleting object
 			this.attackPower = 1;
 			let elm = document.createElement('div');
 			elm.className = type + ' ' + color;
 			square.appendChild(elm);
+			if(y === undefined) { // do not place piece onto the board if it's on the pieceHolder
+				elm.id = this.id;
+				return this;
+			}
 			return board[x][y] = this;
 		}
 		move(x, y) {
 			if(x < 0 || x > 7 || y < 0 || y > 7) throw new Error('Invalid square');
 			let content = getBoardContent(x, y, this.color);
-			if(content == 1) throw new Error('Invalid move');
+			if(content == 1) throw new Error('Square is already occupied');
 			if(content == 0){
 				board[x][y] = this;
-				delete board[this.x][this.y];
+				if(this.x != 8) delete board[this.x][this.y]; // Important: only delete if it used to be on the board
 				movePiece(this.x, this.y, x, y);
 				this.x = x;
 				this.y = y;
@@ -228,28 +263,18 @@
 					movePiece(this.x, this.y);
 				}
 			}
-			// Bomber instakill
-			let killedPieces = [];
-			for(let i = 0, pieces = Game.white, l = pieces.length; i < l; i++){
-				let piece = pieces[i];
-				if(piece && piece.constructor == Bomber) {
-					killedPieces = searchCross(piece.x, piece.y, piece.color, 1).concat(searchDiagonal(piece.x, piece.y, piece.color, 1)).filter(arr => getBoardContent(arr[0], arr[1], "white") < 0);
+			if(Game.started) {
+				Bomber.instakill(); // this looks so nice...
+				if(Game.doubleMove) Game.doubleMove = false;
+				else {
+					let c = Game.count(Game.turn);
+					if(!c) alert(Game.turn == 'white' ? 'Black won!' : 'White won!'); // suicide win
+					else if(c == 1) Game.doubleMove = true;
+					Game.turn = Game.turn == 'white' ? 'black' : 'white';
 				}
+				if(Game.count(Game.turn) == 0) alert(Game.turn == 'white' ? 'Black won!' : 'White won!');
+				else if(Game.retreating) alert(Game.turn == 'white' ? 'Black retreated.' : 'White retreated.');
 			}
-			for(let i = 0, pieces = Game.black, l = pieces.length; i < l; i++){
-				let piece = pieces[i];
-				if(piece && piece.constructor == Bomber) {
-					killedPieces = killedPieces.concat(searchCross(piece.x, piece.y, piece.color, 1).concat(searchDiagonal(piece.x, piece.y, piece.color, 1)).filter(arr => getBoardContent(arr[0], arr[1], "black") < 0));
-				}
-			}
-			for(let i = 0, l = killedPieces.length; i < l; i++){
-				let [x, y] = killedPieces[i];
-				if(board[x][y]) {
-					movePiece(x, y);
-					board[x][y].die();
-				}
-			}
-			Game.turn = Game.turn == 'white' ? 'black' : 'white';
 		}
 		die() {
 			delete Game[this.color][this.id];
@@ -498,11 +523,13 @@
 		}
 		getMoves(){
 			return []; // unless absolutely necessary, just use getSupports() for now. It's almost the same thing.
+			// Also, fighters don't always move into enemy square during attack, similar to a regular move.
 			// return searchCross(this.x, this.y, this.color, 7).concat(searchDiagonal(this.x, this.y, this.color, 7));
 		}
 		move(x, y){
 			let tx = this.x, ty = this.y, dx = (x > tx) - (x < tx), dy = (y > ty) - (y < ty);
 			super.move(x, y); // Note: this does not check if the fighter jumped over only 1 enemy piece
+			if(!Game.started) return;
 			for(tx += dx, ty += dy; tx != this.x || ty != this.y; tx += dx, ty += dy) {
 				if(getBoardContent(tx, ty, this.color) == -1) {
 					movePiece(tx, ty);
@@ -518,10 +545,32 @@
 		}
 		getSupports(){
 			// return searchCross(this.x, this.y, this.color, 1);
-			return []; // bomber's surrounding is always empty.
+			return []; // bombers always have no surrounding enemies
 		}
 		getMoves(){
 			return searchCross(this.x, this.y, this.color, 1).concat(searchDiagonal(this.x, this.y, this.color, 1)).filter(arr => !getBoardContent(...arr));
+		}
+		static instakill() { // To avoid bomber collisions, must go through all pieces first.
+			let killedPieces = [];
+			for(let i = 0, pieces = Game.white, l = pieces.length; i < l; i++){
+				let piece = pieces[i];
+				if(piece && piece.constructor == Bomber) {
+					killedPieces = searchCross(piece.x, piece.y, piece.color, 1).concat(searchDiagonal(piece.x, piece.y, piece.color, 1)).filter(arr => getBoardContent(arr[0], arr[1], "white") < 0);
+				}
+			}
+			for(let i = 0, pieces = Game.black, l = pieces.length; i < l; i++){
+				let piece = pieces[i];
+				if(piece && piece.constructor == Bomber) {
+					killedPieces = killedPieces.concat(searchCross(piece.x, piece.y, piece.color, 1).concat(searchDiagonal(piece.x, piece.y, piece.color, 1)).filter(arr => getBoardContent(arr[0], arr[1], "black") < 0));
+				}
+			}
+			for(let i = 0, l = killedPieces.length; i < l; i++){
+				let [x, y] = killedPieces[i];
+				if(board[x][y]) {
+					movePiece(x, y);
+					board[x][y].die();
+				}
+			}
 		}
 	}
 	class Transport extends Piece {
@@ -540,26 +589,62 @@
 			super(x, y, 'hel', color);
 		}
 		getSupports(){
-			return searchKnight(this.x, this.y, this.color).filter(arr => getBoardContent(...arr));;
+			return searchKnight(this.x, this.y, this.color).filter(arr => getBoardContent(...arr));
 		}
 		getMoves(){
-			return searchDiagonal(this.x, this.y, this.color, 1).concat(searchCross(this.x, this.y, this.color, 1)).filter(arr => !getBoardContent(...arr));;
+			return searchDiagonal(this.x, this.y, this.color, 1).concat(searchCross(this.x, this.y, this.color, 1)).filter(arr => !getBoardContent(...arr));
 		}
 	}
 
 	// EVENT LISTENERS
+	pieceHolder.addEventListener('click',function(e){
+		clearValidMoves();
+		if(e.target == this) return;
+		else {
+			e.target.classList.add('selected'); // TEMPORARY (really can't think of a better way to do this)
+			pieceSelected = Game.white[e.target.id]; // id is removed when player ready up (Idk why)
+			let moves = [];
+			for(let x = 0; x < 8; x++){
+				for(let y = 4; y < 8; y++) getBoardContent(x, y) || moves.push([x, y]);
+			}
+			showValidMoves(moves);
+		}
+	});
+	reset.addEventListener('click',function(e){
+		pieceSelected = null;
+		for(let x = 0; x < 8; x++){
+			for(let y = 4; y < 8; y++){
+				let piece = board[x][y];
+				if(piece) {
+					piece.x = piece.y = 8;
+					delete board[x][y];
+					let squ = getSquare(x, y);
+					if(squ.children.length) pieceHolder.appendChild(squ.removeChild(squ.children[0]));
+				}
+			}
+		}
+	});
+	ready.addEventListener('click',function(e){
+		clearValidMoves();
+		Game.started = this.disabled = reset.disabled = true;
+		skip.disabled = retreat.disabled = surrender.disabled = false;
+		pieceHolder.style.display = 'none';
+		for(let i = 0, list = chessboard.querySelectorAll('.white'), l = list.length; i < l; i++)
+			list[i].removeAttribute("id");
+	});
 	skip.addEventListener('click',function(e){
+		clearValidMoves();
+		if(Game.count(Game.turn) == 1) Game.doubleMove = true;
+		else Game.doubleMove = false;
 		Game.turn = Game.turn == 'white' ? 'black' : 'white';
 	});
-	/* // need actual game to be working
-	ceasefire.addEventListener('click',function(e){
-
-	});
 	retreat.addEventListener('click',function(e){
-		Game.retreating = true; // Uhhh... And??
+		clearValidMoves();
+		Game.turn = Game.turn == 'white' ? 'black' : 'white';
+		retreat.disabled = Game.doubleMove = Game.retreating = true;
 	});
-	*/
 	surrender.addEventListener('click',function(e){
+		clearValidMoves();
 		for(let i = 0; i < 8; i++){
 			for(let j = 0; j < 8; j++){
 				if(board[i][j] && board[i][j].color == Game.turn){
@@ -569,8 +654,9 @@
 				}
 			}
 		}
+		surrender.disabled = true;
 	});
-	/* Test case: Fighter jump
+	//* Test case: Fighter jump
 	new Fighter(0, 7, "white");
 	new Fighter(7, 7, "white");
 	new Tank(3, 4, "black");
@@ -590,10 +676,12 @@
 	new Bomber(1, 6, "white");
 	new Bomber(2, 5, "white");
 	//*/
-	//* Standard setup
+	/* Standard setup
+	// Don't specify x and y to put it on the pieceHolder (white only)
 	for(let i = 0; i < 8; i++){
 		new Infantry(i, 1, "black");
-		new Infantry(i, 6, "white");
+		// new Infantry(i, 6, "white");
+		new Infantry("white");
 	}
 	new Tank(0, 0, "black");
 	new Artillery(1, 0, "black");
@@ -603,6 +691,7 @@
 	new MechanizedInfantry(5, 0, "black");
 	new Artillery(6, 0, "black");
 	new Tank(7, 0, "black");
+	//* Arrangements
 	new Tank(0, 7, "white");
 	new Artillery(1, 7, "white");
 	new MechanizedInfantry(2, 7, "white");
@@ -611,7 +700,20 @@
 	new MechanizedInfantry(5, 7, "white");
 	new Artillery(6, 7, "white");
 	new Tank(7, 7, "white");
+	//*
+	new Tank("white");
+	new Artillery("white");
+	new MechanizedInfantry("white");
+	new Fighter("white");
+	new Bomber("white");
+	new MechanizedInfantry("white");
+	new Artillery("white");
+	new Tank("white");
 	//*/
+	if(!pieceHolder.children.length) {
+		ready.disabled = false;
+		ready.click();
+	}
 	</script>
 </body>
 </html>
