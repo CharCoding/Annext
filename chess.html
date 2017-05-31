@@ -550,7 +550,7 @@
 		getMoves(){
 			return searchCross(this.x, this.y, this.color, 1).concat(searchDiagonal(this.x, this.y, this.color, 1)).filter(arr => !getBoardContent(...arr));
 		}
-		static instakill() { // To avoid bomber collisions, must go through all pieces first.
+		static instakill() { // To avoid bomber collisions (literally), must go through all pieces first.
 			let killedPieces = [];
 			for(let i = 0, pieces = Game.white, l = pieces.length; i < l; i++){
 				let piece = pieces[i];
@@ -577,7 +577,7 @@
 		constructor(x, y, color) {
 			super(x, y, 'tra', color);
 		}
-		getSupports(){
+		getSupports(){ // but what about transport ramming?
 			return []; // can't attack, no support
 		}
 		getMoves(){
@@ -656,7 +656,7 @@
 		}
 		surrender.disabled = true;
 	});
-	//* Test case: Fighter jump
+	/* Test case: Fighter jump
 	new Fighter(0, 7, "white");
 	new Fighter(7, 7, "white");
 	new Tank(3, 4, "black");
@@ -680,7 +680,7 @@
 	// Don't specify x and y to put it on the pieceHolder (white only)
 	for(let i = 0; i < 8; i++){
 		new Infantry(i, 1, "black");
-		// new Infantry(i, 6, "white");
+		//new Infantry(i, 6, "white");
 		new Infantry("white");
 	}
 	new Tank(0, 0, "black");
@@ -691,7 +691,7 @@
 	new MechanizedInfantry(5, 0, "black");
 	new Artillery(6, 0, "black");
 	new Tank(7, 0, "black");
-	//* Arrangements
+	/* Arrangements
 	new Tank(0, 7, "white");
 	new Artillery(1, 7, "white");
 	new MechanizedInfantry(2, 7, "white");
@@ -700,7 +700,7 @@
 	new MechanizedInfantry(5, 7, "white");
 	new Artillery(6, 7, "white");
 	new Tank(7, 7, "white");
-	//*
+	/*
 	new Tank("white");
 	new Artillery("white");
 	new MechanizedInfantry("white");
@@ -710,6 +710,17 @@
 	new Artillery("white");
 	new Tank("white");
 	//*/
+	new Cruiser(0, 0, "black");
+	new Battleship(1, 0, "black");
+	new Destroyer(2, 0, "black");
+	new AircraftCarrier(3, 0, "black");
+	new Submarine(4, 0, "black");
+	new Destroyer(5, 0, "black");
+	new Battleship(6, 0, "black");
+	new Cruiser(7, 0, "black");
+	for(let i = 0; i < 8; i++){
+		new Transport(i, 1, "black");
+	}
 	if(!pieceHolder.children.length) {
 		ready.disabled = false;
 		ready.click();
