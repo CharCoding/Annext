@@ -517,7 +517,7 @@
 			return map[x][y] = this;
 		}
 		get neighbors(){
-			
+
 		}
 		draw(color){
 			let x = (this.x + this.y) * r * 1.5 - 30 * r, y = (this.y - this.x) * r * .866;
@@ -640,7 +640,58 @@
 		pt = t.transformedPoint(width / 2, height / 2);
 		c.style.backgroundPosition = (width / 2 - pt.x) / 20 + 'px ' + (height / 2 - pt.y) / 20 + 'px';
 	}
+	var prng = {
+		m : Math.pow(2, 32), //see https://en.wikipedia.org/wiki/Linear_congruential_generator#Parameters_in_common_use
+		a : 1664525,
+		c : 1013904223,
+		seed : 12,
+		next : function() {
+			this.seed = (this.a * this.seed + this.c) % this.m;
+			return this.seed;
+		}
+	}
+	function seedToMap(s) {
+		prng.seed = s;
+		var borderLand = 0.4,
+		borderDesert = 0.6,
+		borderMountain = 0.7,
+		levelSizes = [24, 12, 6, 3], //size of (square) level tiles
+		levelNumbers = [1000, 1000, 1000, 1000], //number of tiles for each level that will need to be generated to fill map (optimize later)
+		levels = [], //values for each level
+		levelMultipliers = [0.1, 0.2, 0.3, 0.2, 0.2]; //weights assigned to sum of each level (should add to 1)
+		for (let i = 0; i < levelSizes.length; i++) {
+			//levelNumbers.push(Math.ceil(Math.pow(24, 2) / Math.pow(levelSizes[i], 2)));
+			levels.push(new Array(levelNumbers[i]));
+		}
+		for (let i = 0; i < levels.length; i++) {
+			for (let j = 0; j < levels[i].length; j++) {
+				levels[i][j] = prng.next();
+			}
+		}
+		for (let x = 0; x < map.length; x++) {
+			for (let y = 0; y < map[x].length; y++) {
+				var sum = 0;
+				for (let a = 0; a < levelMultipliers.length - 1; a++) {
+					sum += (levels[a][Math.floor(x / levelSizes[a]) * levelSizes[a] + Math.floor(y / levelSizes[a])]) * levelMultipliers[a];
+				}
+				sum += prng.next() * levelMultipliers[levelMultipliers.length - 1];
+				if (sum / prng.m > borderMountain) {
+					map[x][y].type = 3;
+				} else if (sum / prng.m > borderDesert) {
+					map[x][y].type = 2;
+				} else if (sum / prng.m > borderLand) {
+					map[x][y].type = 1;
+				} else {
+					map[x][y].type = 0; //redundant, but allows for easier console testing since ocean can overwrite land
+				}
+				map[x][y].sum = sum / prng.m; //debug only - comment out if desired
+				map[x][y].color = colors[map[x][y].type];
+			}
+		}
+		draw();
+	}
 	draw();
+	seedToMap(54);
 	</script>
 </body>
 </html>
