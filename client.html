@@ -3,10 +3,10 @@
 <head>
 	<title>Annext</title>
 	<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
-	<link href="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.98.0/css/materialize.min.css" rel="stylesheet" type="text/css" />
+	<link href="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.98.2/css/materialize.min.css" rel="stylesheet" type="text/css" />
 	<link href="favicon.ico" rel="icon" type="image/x-icon" />
 	<script type="text/javascript" src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
-	<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.98.0/js/materialize.min.js"></script>
+	<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.98.2/js/materialize.min.js"></script>
 	<script type="text/javascript" src="js/wordgen.min.js"></script>
 	<meta charset="UTF-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
@@ -30,9 +30,7 @@
 		height: 100%;
 		margin: 0;
 	}
-	#game {
-		left: 100%;
-	}
+	#game { left: 100%; }
 	.display { position: absolute; left: 0; width: 100%; text-align: center; color: #fff; }
 	h1.display { top: 0; font-size: 112px !important; font-weight: 300 !important; }
 	h4.display { top: 144px; }
@@ -51,13 +49,8 @@
 		overflow-y: auto;
 		display: none;
 	}
-	#x {
-		display: inline-block;
-		transition: transform 200ms;
-	}
-	h1.display:hover > #x {
-		transform: rotateY(180deg);
-	}
+	#x { display: inline-block; transition: transform 200ms; }
+	h1.display:hover > #x { transform: rotateY(180deg); }
 	#start {
 		position: absolute;
 		top: 256px;
@@ -65,10 +58,7 @@
 		right: 0;
 		bottom: 0;
 	}
-	#join {
-		margin-right: -32px;
-		margin-top: -8px;
-	}
+	#join { margin-right: -32px; margin-top: -8px; }
 	#credits {
 		position: absolute;
 		bottom: 0;
@@ -76,20 +66,13 @@
 		text-align: center;
 		color: white;
 	}
-	.input-field input[type=text]:focus + label {
-		color: #E91E63;
-	}
+	.input-field input[type=text]:focus + label { color: #E91E63; }
 	.input-field input[type=text]:focus {
 		border-bottom: 1px solid #E91E63;
 		box-shadow: 0 1px 0 0 #E91E63;
 	}
-	#logo {
-		padding-left: 8px;
-		padding-top: 8px;
-	}
-	#action {
-		display: none;
-	}
+	#logo { padding-left: 8px; padding-top: 8px; }
+	#action { display: none; }
 	.circle { /* Can't believe they don't have this class. Well, here goes browser-compatibility... */
 		width: 48px;
 		height: 48px;
@@ -98,10 +81,26 @@
 		margin: 0 !important;
 		border-radius: 50%;
 	}
+	#leftTabs {
+		position: relative;
+		display: inline-block;
+		left: 0;
+		top: 0;
+		width: auto;
+		overflow-x: visible;
+	}
+	#leftTabs ul, #leftTabs li {
+		height: 64px;
+	}
+	#leftTabs a {
+		height: 64px;
+		padding: 8px 24px;
+		box-sizing: border-box;
+	}
 	.tabcontent {
 		position: absolute;
 		left: 0;
-		top: 112px;
+		top: 64px;
 		right: 0;
 		bottom: 0;
 	}
@@ -124,7 +123,7 @@
 		background-position: 0 0;
 	}
 	</style>
-		<script type="text/javascript">
+	<script type="text/javascript">
 	(function(window,document) {
 		var prefix = "", _addEventListener, support;
 		if ( window.addEventListener ) _addEventListener = "addEventListener"; // detect event model
@@ -164,7 +163,7 @@
 			}, useCapture || false );
 		}
 	})(window,document);
-	function trackTransforms(t){
+	function trackTransforms(t){ // Credit goes to http://phrogz.net/tmp/canvas_zoom_to_cursor.html
 		let svg = document.createElementNS('http://www.w3.org/2000/svg','svg'), xform = svg.createSVGMatrix(),
 		savedTransforms = [], save = t.save, restore = t.restore, scale = t.scale, rotate = t.rotate,
 		translate = t.translate, transform = t.transform, setTransform = t.setTransform, pt = svg.createSVGPoint();
@@ -298,23 +297,23 @@
 		</div-->
 	</div>
 	<div id="game">
-		<nav class="nav-extended">
+		<nav class="nav">
 			<div class="nav-wrapper indigo">
-				<a href="#" class="brand-logo">
-					<img id="logo" src="./images/x.png" width="46" height="40" alt="x" />
+				<div id="leftTabs">
+					<ul id="nav-content" class="left tabs tabs-transparent indigo">
+        		<li class="tab"><a href="#map">MAP</a></li>
+        		<li class="tab"><a href="#history">HISTORY</a></li>
+        		<li class="tab"><a href="#stats">STATS</a></li>
+        		<li class="tab disabled"><a href="#battle">BATTLE</a></li>
+      		</ul>
+      	</div>
+				<a href="#" class="brand-logo center">
+					<!--img id="logo" src="images/x.png" width="46" height="40" alt="x" /-->
 					<span id="countryName"></span>
 				</a>
 				<ul class="right">
 					<li><a href="#!"><i class="material-icons left">launch</i>Manual</a></li>
 					<li><a href="#!" id="chatBtn"><i class="material-icons right">chat</i>Chat</a></li>
-				</ul>
-			</div>
-			<div class="nav-content">
-				<ul class="tabs tabs-transparent indigo">
-					<li class="tab"><a href="#map">Map</a></li>
-					<li class="tab"><a href="#history">Order History</a></li>
-					<li class="tab"><a href="#stats">Statistics</a></li>
-					<li class="tab disabled"><a href="#battle">Battle</a></li>
 				</ul>
 			</div>
 		</nav>
@@ -329,14 +328,30 @@
 			</div>
 			<canvas id="c"></canvas>
 			<div id="action" class="fixed-action-btn horizontal">
-				<a class="btn-floating btn-large pink">
+				<a class="btn-floating btn-large pink waves-effect waves-light">
 					<i class="large material-icons">add</i>
 				</a>
 				<ul>
-					<li><a id="cityBtn" class="btn-floating blue-grey"><i class="material-icons">location_city</i></a></li>
-					<li><a id="militaryBtn" class="btn-floating red"><i class="material-icons">gps_fixed</i></a></li>
-					<li><a id="buildBtn" class="btn-floating yellow darken-1"><i class="material-icons">build</i></a></li>
-					<li><a id="tradeBtn" class="btn-floating green"><i class="material-icons">attach_money</i></a></li>
+					<li>
+						<a id="cityBtn" class="btn-floating blue-grey waves-effect waves-light">
+							<i class="material-icons">location_city</i>
+						</a>
+					</li>
+					<li>
+						<a id="militaryBtn" class="btn-floating red waves-effect waves-light">
+							<i class="material-icons">gps_fixed</i>
+						</a>
+					</li>
+					<li>
+						<a id="buildBtn" class="btn-floating yellow darken-1 waves-effect waves-light">
+							<i class="material-icons">build</i>
+						</a>
+					</li>
+					<li>
+						<a id="tradeBtn" class="btn-floating green waves-effect waves-light">
+							<i class="material-icons">attach_money</i>
+						</a>
+					</li>
 				</ul>
 			</div>
 		</div>
@@ -477,7 +492,7 @@
 		});
 	});
 	//*/
-	let width = window.innerWidth, height = window.innerHeight - 112 /*height of top tab*/, keyspressed = [], timer;
+	let width = window.innerWidth, height = window.innerHeight - 64 /*height of top tab*/, keyspressed = [], timer;
 	const scaleFactor = 1.04, t = c.getContext('2d'), r = 16, colors = ["#003fcf","#00ff3f","#cfcf00","#7f7f7f"],
 	map = new Array(20), mouse = {
 		x: width / 2, y: height / 2, dragged: false, dragStart: null
@@ -581,7 +596,8 @@
 	},false);
 	window.addEventListener('resize',function(evt){
 		c.width = width = window.innerWidth;
-		c.height = height = window.innerHeight - 112;
+		c.height = height = window.innerHeight - 64;
+		trackTransforms(t);
 		mouse.x = width / 2;
 		mouse.y = width / 2;
 	});
@@ -589,9 +605,9 @@
 		var pt = t.transformedPoint(mouse.x,mouse.y);
 		t.translate(pt.x,pt.y);
 		var factor = Math.pow(scaleFactor,clicks), m = t.getTransform();
-		if(factor < 1 && m.a < 1) {
+		if(factor < 1 && m.a <= 1) {
 			t.setTransform(1, m.b, m.c, 1, m.e, m.f);
-		} else if(factor > 1 && m.a > 8) {
+		} else if(factor > 1 && m.a >= 8) {
 			t.setTransform(8, m.b, m.c, 8, m.e, m.f);
 		} else t.scale(factor,factor);
 		t.translate(-pt.x,-pt.y);
@@ -600,21 +616,28 @@
 		zoom(Math.min(Math.max(evt.deltaY / 100, -8), 8));
 		return evt.preventDefault() && false;
 	});
+	let interval = 30, now, then = Date.now(), delta, _mx = mouse.x, _my = mouse.y, _mz = t.getTransform().a;
 	function draw(){
 		timer = requestAnimationFrame(draw);
+		now = Date.now();
+		delta = now - then;
+		if(delta <= interval) return;
+		if(_mx == mouse.x && _my == mouse.y && _mz == t.getTransform().a) return;
+		_mx = mouse.x;
+		_my = mouse.y;
+		_mz = t.getTransform().a;
+		then = now - (delta % interval);
 		t.save();
 		t.setTransform(1,0,0,1,0,0);
 		t.clearRect(0, 0, width, height);
 		t.restore();
 		for(let x = 0; x < 21; x++){
-			for(let y = 0; y < 21; y++){
+			for(let y = 0; y < 21; y++)
 				map[x][y].draw();
-			}
 		}
 		let pt = t.transformedPoint(mouse.x, mouse.y);
 		Hex.round(pt.x, pt.y).draw("#ff0000");
 		pt = t.transformedPoint(width / 2, height / 2);
-		// c.style.backgroundSize = m.a * 100 + '%' + m.d * 100 + '%';
 		c.style.backgroundPosition = (width / 2 - pt.x) / 20 + 'px ' + (height / 2 - pt.y) / 20 + 'px';
 	}
 	draw();
