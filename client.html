@@ -105,12 +105,23 @@
 		right: 0;
 		bottom: 0;
 	}
+	#map {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+	}
 	canvas {
 		position: absolute;
 		left: 0;
 		top: 0;
 		width: 100%;
 		height: 100%;
+		background-color: rgb(6, 16, 36);
+		background-image: url('images/universe.jpg');
+		background-repeat: no-repeat;
+		background-size: cover;
+		background-position: 0 0;
 	}
 	</style>
 		<script type="text/javascript">
@@ -495,9 +506,18 @@
 		}
 		draw(color){
 			let x = (this.x + this.y) * r * 1.5 - 30 * r, y = (this.y - this.x) * r * .866;
-			let pt = t.originalPoint(x, y);
-			if(pt.x + r < 0 || pt.x - r> width || pt.y + r * 1.732 < 0 || pt.y - r * 1.732 > height) return; // outside of viewport
-			// need to replace with code that checks if a wrapped around tile is in the viewport
+			let pt = t.originalPoint(x, y), z = t.getTransform.a, HP = r * z * .75, VP = r * z * .866;
+			// zoom, horizontal/vertical padding
+			if(pt.x + HP < 0 || pt.x - HP > width || pt.y + VP < 0 || pt.y - VP > height){
+				if(pt.x + HP < 0) pt.x = mod(pt.x, 60 * r) + 60 * r;
+				else if(pt.x - HP > width) pt.x = mod(pt.x, 60 * r) - 60 * r;
+				if(pt.y + VP < 0) pt.y = mod(pt.x, 17.32 * r) + 17.32 * r;
+				else if(pt.y - VP > height) pt.y = mod(pt.y, 17.32 * r) - 17.32 * r;
+				pt = t.transformedPoint(pt);
+				x = pt.x;
+				y = pt.y;
+				color = "#00ff00";
+			}
 			t.beginPath();
 			t.moveTo(x + r, y);
 			t.lineTo(x + r / 2, y + r * .866);
@@ -568,18 +588,22 @@
 	function zoom(clicks){
 		var pt = t.transformedPoint(mouse.x,mouse.y);
 		t.translate(pt.x,pt.y);
-		var factor = Math.pow(scaleFactor,clicks);
-		t.scale(factor,factor);
+		var factor = Math.pow(scaleFactor,clicks), m = t.getTransform();
+		if(factor < 1 && m.a < 1) {
+			t.setTransform(1, m.b, m.c, 1, m.e, m.f);
+		} else if(factor > 1 && m.a > 8) {
+			t.setTransform(8, m.b, m.c, 8, m.e, m.f);
+		} else t.scale(factor,factor);
 		t.translate(-pt.x,-pt.y);
 	}
 	addWheelListener(c,function(evt){
-		zoom(evt.deltaY / 100);
+		zoom(Math.min(Math.max(evt.deltaY / 100, -8), 8));
 		return evt.preventDefault() && false;
 	});
 	function draw(){
 		timer = requestAnimationFrame(draw);
 		t.save();
-		t.setTransform(1,0,0,0,1,0);
+		t.setTransform(1,0,0,1,0,0);
 		t.clearRect(0, 0, width, height);
 		t.restore();
 		for(let x = 0; x < 21; x++){
@@ -589,6 +613,9 @@
 		}
 		let pt = t.transformedPoint(mouse.x, mouse.y);
 		Hex.round(pt.x, pt.y).draw("#ff0000");
+		pt = t.transformedPoint(width / 2, height / 2);
+		// c.style.backgroundSize = m.a * 100 + '%' + m.d * 100 + '%';
+		c.style.backgroundPosition = (width / 2 - pt.x) / 20 + 'px ' + (height / 2 - pt.y) / 20 + 'px';
 	}
 	draw();
 	</script>
