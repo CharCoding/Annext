@@ -517,7 +517,14 @@
 			return map[x][y] = this;
 		}
 		get neighbors(){
-
+			return [ // does this really work?
+				map[mod(this.x + 1, 21)][this.y],
+				map[mod(this.x + 1, 21)][mod(this.y - 1, 21)],
+				map[this.x][mod(this.y - 1, 21)],
+				map[mod(this.x - 1, 21)][this.y],
+				map[mod(this.x - 1, 21)][mod(this.y + 1, 21)],
+				map[this.x][mod(this.y + 1, 21)],
+			];
 		}
 		draw(color){
 			let x = (this.x + this.y) * r * 1.5 - 30 * r, y = (this.y - this.x) * r * .866;
@@ -531,7 +538,7 @@
 				pt = t.transformedPoint(pt);
 				x = pt.x;
 				y = pt.y;
-				color = "#00ff00";
+				color = "#00ff00"; // this doesn't work
 			}
 			t.beginPath();
 			t.moveTo(x + r, y);
@@ -541,9 +548,13 @@
 			t.lineTo(x - r / 2, y - r * .866);
 			t.lineTo(x + r / 2, y - r * .866);
 			t.closePath();
-			t.stroke();
-			t.fillStyle = color || this.color;
-			t.fill();
+			if(color == "outline") {
+				t.strokeStyle = "#ffffff";
+				t.stroke();
+			} else {
+				t.fillStyle = color || this.color;
+				t.fill();
+			}
 		}
 		static round(x, y){
 			[x, y] = [(x - 1.732 * y) / 3 / r + 10, (x + 1.732 * y) / 3 / r + 10];
@@ -586,6 +597,14 @@
 		// if (!dragged) zoom(evt.shiftKey ? -1 : 1 );
 	},false);
 	c.addEventListener('click',function(evt){
+		if(player.god == true){
+			let pt = t.transformedPoint(mouse.x,mouse.y),
+			hex = Hex.round(pt.x, pt.y);
+			hex.type++;
+			if(hex.type > 3) hex.type = 0;
+			hex.color = colors[hex.type];
+			_mx++; // hack: force draw() to re-render map
+		}
 		if(!mouse.dragStart){
 
 		}
@@ -617,6 +636,7 @@
 		return evt.preventDefault() && false;
 	});
 	let interval = 30, now, then = Date.now(), delta, _mx = mouse.x, _my = mouse.y, _mz = t.getTransform().a;
+	// FPS controller and input check for optimizations
 	function draw(){
 		timer = requestAnimationFrame(draw);
 		now = Date.now();
@@ -636,7 +656,7 @@
 				map[x][y].draw();
 		}
 		let pt = t.transformedPoint(mouse.x, mouse.y);
-		Hex.round(pt.x, pt.y).draw("#ff0000");
+		Hex.round(pt.x, pt.y).draw("outline");
 		pt = t.transformedPoint(width / 2, height / 2);
 		c.style.backgroundPosition = (width / 2 - pt.x) / 20 + 'px ' + (height / 2 - pt.y) / 20 + 'px';
 	}
@@ -686,12 +706,35 @@
 				}
 				map[x][y].sum = sum / prng.m; //debug only - comment out if desired
 				map[x][y].color = colors[map[x][y].type];
+				// render immediately
+				_mx++;
 			}
 		}
-		draw();
 	}
+	function exportMap(){ // this allows maps up to 26x26 due to the doubles' 2^53 mantissa limit
+		let arr = new Array(21).fill(0);
+		for(let x = 0; x < 21; x++){
+			for(let y = 0; y < 21; y++){
+				arr[x] += map[x][y].type * Math.pow(2, 2*y);
+			}
+			arr[x] = arr[x].toString(36); // compress via base36
+		}
+		prompt("Your map:",arr.join());
+	}
+	function importMap(str){
+		let arr = (str || prompt("Enter a map string:")).split(',');
+		if(arr.length < 21) return console.log("Something is wrong with this map string");
+		for(let x = 0; x < 21; x++){
+			arr[x] = parseInt(arr[x], 36);
+			for(let y = 0; y < 21; y++){
+				map[x][y].color = colors[map[x][y].type = arr[x] / Math.pow(2, 2*y) & 3];
+				//hack: & 3 both floors the result (bitwise operator) and modulo the result by 4
+			}
+		}
+	}
+	importMap("vkisfod,ewpm2oal,if376btp,ewofggbd,begwwf9x,1hd780k,ieydxy4w,3q64aakw,ihf6a9es,lxcvjbr4,4dulwetd,282dc,in0fdzkl,noi2nuop,imw4jxgl,ipbr4fv9,4ecbzur5,ikvkwfa7,15ft74cpp,zdbmp3qh,12ga122vp");
+	// player.god = true; // edit map with this
 	draw();
-	seedToMap(54);
 	</script>
 </body>
 </html>
