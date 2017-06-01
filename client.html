@@ -8,6 +8,7 @@
 	<script type="text/javascript" src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
 	<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.98.2/js/materialize.min.js"></script>
 	<script type="text/javascript" src="js/wordgen.min.js"></script>
+	<script type="text/javascript" src="graphs.js"></script>
 	<meta charset="UTF-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 	<style type="text/css">
@@ -110,7 +111,7 @@
     -ms-user-select: none;
     user-select: none;
 	}
-	canvas {
+	#c {
 		position: absolute;
 		left: 0;
 		top: 0;
@@ -122,6 +123,8 @@
 		background-size: cover;
 		background-position: 0 0;
 	}
+	#historyGraph {border: 2px solid white;}
+	#statsGraph {border: 2px solid white;}
 	</style>
 	<script type="text/javascript">
 	(function(window,document) {
@@ -356,10 +359,55 @@
 			</div>
 		</div>
 		<div id="history" class="col s12 tabcontent">
-
+			<div class="container">
+				<br>
+				<center><a id="historyGraphTitle" class="dropdown-button btn pink" data-activates="historyGraphSelector">Development</a></center>
+				<ul id='historyGraphSelector' class='dropdown-content indigo-text'> <!--indigo-text class does nothing here, hence the text classes below--->
+					<li><a class="indigo-text" >Development</a></li>
+					<li><a class="indigo-text" >Population</a></li>
+				 <li><a class="indigo-text" >Steel Production</a></li>
+				 <li><a class="indigo-text" >Oil Production</a></li>
+				 <li><a class="indigo-text" >Air Units</a></li>
+				 <li><a class="indigo-text" >Land Units</a></li>
+				 <li><a class="indigo-text" >Sea Units</a></li>
+				 <li><a class="indigo-text" >Nuclear Weapons</a></li>
+			 </ul>
+			 <canvas id="historyGraph"></canvas>
+			</div>
 		</div>
 		<div id="stats" class="col s12 tabcontent">
-
+			<br>
+			<center><a id="statsTitle" class="dropdown-button btn pink" data-activates="statsSelector">Development</a></center>
+			<ul id='statsSelector' class='dropdown-content indigo-text'>
+				<li><a class="indigo-text">Development</a></li>
+				<li><a class="indigo-text">Population</a></li>
+			 <li><a class="indigo-text">Steel Production</a></li>
+			 <li><a class="indigo-text">Oil Production</a></li>
+			 <li><a class="indigo-text">Air Units</a></li>
+			 <li><a class="indigo-text">Land Units</a></li>
+			 <li><a class="indigo-text">Sea Units</a></li>
+			 <li><a class="indigo-text">Tiles</a></li>
+			 <li><a class="indigo-text">Nuclear Weapons</a></li>
+		 </ul></center>
+		 <br>
+		 <div class="row">
+			 <div class="col s6">
+				 <table id="statsTable" class="highlight white-text">
+					 <thead>
+						 <tr>
+							 <th>Player</th>
+							 <th id="statsTableHeading">Development</th>
+							 <th id="statsTablePercentHeading">% of World Development</th>
+						 </tr>
+					 </thead>
+					 <tbody id="statBody">
+					 </tbody>
+				 </table>
+			 </div>
+			 <div class="col s6">
+				 <canvas id="statsGraph"></canvas>
+			 </div>
+			</div>
 		</div>
 		<div id="battle" class="col s12 tabcontent">
 
@@ -404,6 +452,7 @@
 	<script type="text/javascript">
 	var player = {
 		countryName: "",
+		color: "",
 		capital: {
 			x: 0,
 			y: 0,
@@ -413,6 +462,12 @@
 		},
 		$development: 0,
 		$city: 0,
+		seaUnits : 0,
+		landUnits : 0,
+		airUnits : 0,
+		units : function() {
+			return this.seaUnits + this.landUnits + this.airUnits;
+		}
 	};
 	$(document).ready(function(){
 		const countryRegex = /^[a-z]+( ?[a-z]+)+ ?[a-z]$/i;
@@ -449,8 +504,22 @@
 			$('#submitName').removeClass('disabled');
 			Materialize.updateTextFields();
 		});
+		$('#historyGraphSelector').on('click', function() {
+			var type = event.target.innerHTML;
+			historyGraphTitle.innerHTML = type;
+			//drawGraph(historyGraph.getContext('2d'), getDataSet(type, players), "line", true)
+		});
+		$('#statsSelector').on('click', function() {
+			var type = event.target.innerHTML;
+			statsTitle.innerHTML = type;
+			statsTableHeading.innerHTML = type;
+			statsTablePercentHeading.innerHTML = "% of World " + type;
+		});
 		Materialize.updateTextFields();
 		$(window).on('resize',canvasSize);
+		//GRAPH TESTS (remove after functionality for getting player data is in place):
+		drawGraph(historyGraph.getContext('2d'), testDataSet, "line", true);
+		drawGraph(statsGraph.getContext('2d'), testDataSet, "pie", true);
 	});
 	function canvasSize(){
 		c.width = $('#c').width();
@@ -493,12 +562,17 @@
 	});
 	//*/
 	let width = window.innerWidth, height = window.innerHeight - 64 /*height of top tab*/, keyspressed = [], timer;
-	const scaleFactor = 1.04, t = c.getContext('2d'), r = 16, colors = ["#003fcf","#00ff3f","#cfcf00","#7f7f7f"],
+	const scaleFactor = 1.04, t = c.getContext('2d'), hgraph = historyGraph.getContext('2d'),
+	r = 16, colors = ["#003fcf","#00ff3f","#cfcf00","#7f7f7f"],
 	map = new Array(20), mouse = {
 		x: width / 2, y: height / 2, dragged: false, dragStart: null
 	};
 	trackTransforms(t);
 	c.width = width; c.height = height;
+	historyGraph.width = width / 1.5; historyGraph.height = height / 1.5;
+	statsGraph.width = width / 2.5; statsGraph.height = height / 2;
+	hgraph.fillStyle = "red";
+	hgraph.fillText("NO DATA", historyGraph.width / 2, historyGraph.height / 2);
 	t.strokeStyle = "#000";
 	t.lineWidth = 1;
 	t.translate(width / 2, height / 2);
