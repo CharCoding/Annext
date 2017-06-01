@@ -185,7 +185,7 @@
 	}
 	</script>
 </head>
-<body>
+<body onkeydown="whichKey(event)">
 	<div id="home">
 		<h1 class="display">Anne<img id="x" src="./images/x.png" width="69" height="60" alt="x" />t</h1>
 		<h4 class="display">Next Level World Domination</h4>
@@ -304,9 +304,9 @@
 			<div class="nav-wrapper indigo">
 				<div id="leftTabs">
 					<ul id="nav-content" class="left tabs tabs-transparent indigo">
-        		<li class="tab"><a href="#map">MAP</a></li>
-        		<li class="tab"><a href="#history">HISTORY</a></li>
-        		<li class="tab"><a href="#stats">STATS</a></li>
+        		<li class="tab"><a id="mapButton" href="#map">MAP</a></li>
+        		<li class="tab"><a id="historyButton" href="#history">HISTORY</a></li>
+        		<li class="tab"><a id="statsButton" href="#stats">STATS</a></li>
         		<li class="tab disabled"><a href="#battle">BATTLE</a></li>
       		</ul>
       	</div>
@@ -521,6 +521,37 @@
 		drawGraph(historyGraph.getContext('2d'), testDataSet, "line", true);
 		drawGraph(statsGraph.getContext('2d'), testDataSet, "pie", true);
 	});
+	function KShortcut(letter, func, description, interpretLetterAsKeycode, altName) {
+	  var obj = {
+	    keycode : 0,
+	    func: func,
+	    letter : letter,
+	    description: description //does nothing, but useful if a keyboard shortcut list is added to the game UI at some point
+	  }
+	  if (interpretLetterAsKeycode) { //for arrow keys and other things that can't be typed
+	    obj.keycode = letter;
+	    obj.letter = altName;
+	  } else {
+	    for (var i = 1; i < 256; i++) {
+	      if (String.fromCharCode(i) == letter.toUpperCase()) {
+	        obj.keycode = i;
+	      }
+	    }
+	  }
+	  return obj;
+	}
+	function whichKey(event) {
+		for (var i = 0; i < keyboardShortcuts.length; i++) {
+	    if (event.keyCode == keyboardShortcuts[i].keycode) {
+	      keyboardShortcuts[i].func();
+	    }
+	  }
+	}
+	var keyboardShortcuts = [
+		KShortcut("1", function(){mapButton.click();}, "move to map"),
+		KShortcut("2", function(){historyButton.click();}, "move to history"),
+		KShortcut("3", function(){statsButton.click();}, "move to stats")
+	];
 	function canvasSize(){
 		c.width = $('#c').width();
 		c.height = $('#c').height();
