@@ -98,6 +98,7 @@
 		padding: 8px 24px;
 		box-sizing: border-box;
 	}
+	.indicator { min-width: 72px; }
 	.tabcontent {
 		position: absolute;
 		left: 0;
@@ -124,7 +125,7 @@
 		background-position: 0 0;
 	}
 	#historyGraph, #statsGraph { border: 2px solid white; }
-	#historyGraphTitle, #statsTitle { width: 200px !important; }
+	#historyGraphTitle, #statsTitle { width: 200px; }
 	</style>
 	<script type="text/javascript">
 	(function(window,document) {
@@ -468,6 +469,7 @@
 			}});
 			$('#countryModal').modal('open');
 			$('#action,#navigator').fadeIn(400);
+			draw();
 		});
 		//$('#chatBtn').sideNav({menuWidth: 360, edge: 'right', closeOnClick: false});
 		$('#closeChat').on('click',function(){
@@ -483,29 +485,24 @@
 			$('#submitName').removeClass('disabled');
 			Materialize.updateTextFields();
 		});
-		$('#historyGraphSelector').on('click', function() {
-			var type = event.target.innerHTML;
+		$('#historyGraphSelector').on('click', function(evt) {
+			if(evt.target.tagName != 'A') return; // sometimes it selects the outer <ul> as target
+			var type = evt.target.innerHTML;
 			historyGraphTitle.innerHTML = type;
 			//drawGraph(historyGraph.getContext('2d'), getDataSet(type, players), "line", true)
 		});
-		$('#statsSelector').on('click', function() {
-			this.style.width = "144px";
-			var type = event.target.innerHTML;
+		$('#statsSelector').on('click', function(evt) {
+			if(evt.target.tagName != 'A') return;
+			var type = evt.target.innerHTML;
 			statsTitle.innerHTML = type;
 			statsTableHeading.innerHTML = type;
 			statsTablePercentHeading.innerHTML = "% of World " + type;
 		});
 		Materialize.updateTextFields();
-		$(window).on('resize',canvasSize);
 		//GRAPH TESTS (remove after functionality for getting player data is in place):
 		drawGraph(historyGraph.getContext('2d'), testDataSet, "line", true);
 		drawGraph(statsGraph.getContext('2d'), testDataSet, "pie", true);
 	});
-	function canvasSize(){
-		c.width = $('#c').width();
-		c.height = $('#c').height();
-	}
-	canvasSize();
 	//var t = c.getContext('2d');
 	/* // Code for room joining/creating
 	function onWebSocketConnect(){
@@ -542,6 +539,8 @@
 	});
 	//*/
 	let width = window.innerWidth, height = window.innerHeight - 64 /*height of top tab*/, keys = new Array(100).fill(0), timer,  mapSize = 25, moved = true;
+	c.width = width;
+	c.height = height;
 	const scaleFactor = 1.04, t = c.getContext('2d'), hgraph = historyGraph.getContext('2d'),
 	r = 16, colors = ["#003fcf","#00ff3f","#cfcf00","#7f7f7f"],
 	map = new Array(mapSize), mouse = {
@@ -581,19 +580,38 @@
 		}
 		draw(color){
 			let x = (this.x + this.y - mapSize + 1) * r * 1.5, y = (this.y - this.x) * r * .866;
-			let pt = t.originalPoint(x, y), HP = r * t.getTransform().a, VP = HP * .866;
-			// HP = VP = 0;
+			let pt = t.originalPoint(x, y), z = t.getTransform().a, HP = r * z, VP = HP * .866;
 			// zoom, horizontal/vertical padding
 			if(pt.x + HP < 0 || pt.x - HP > width || pt.y + VP < 0 || pt.y - VP > height){
-				return;
-				if(pt.x + HP < 0) pt.x = mod(pt.x, (mapSize - 1) * 1.5 * r) + (mapSize - 1) * 1.5 * r;
-				else if(pt.x - HP > width) pt.x = mod(pt.x, (mapSize - 1) * 1.5 * r) - (mapSize - 1) * 1.5 * r;
-				if(pt.y + VP < 0) pt.y = mod(pt.x, (mapSize - 1) * .866 * r) + (mapSize - 1) * .866 * r;
-				else if(pt.y - VP > height) pt.y = mod(pt.y, (mapSize - 1) * .866 * r) - (mapSize - 1) * .866 * r;
-				pt = t.transformedPoint(pt);
-				x = pt.x;
-				y = pt.y;
-				color = "#00ff00"; // this doesn't work
+				if(pt.x + HP < 0) {
+					if(pt.y + VP < 0) {
+						x = (this.x + this.y + 1) * r * 1.5;
+						y = (this.y - this.x + mapSize) * r * .866;
+					} else if(pt.y - VP > height){
+						x = (this.x + this.y + 1) * r * 1.5;
+						y = (this.y - this.x - mapSize) * r * .866;
+					} else {
+						x = (this.x + this.y + mapSize + 1) * r * 1.5;
+					}
+				} else if(pt.x - HP > width) {
+					if(pt.y + VP < 0) {
+						x = (this.x + this.y - 2 * mapSize + 1) * r * 1.5;
+						y = (this.y - this.x + mapSize) * r * .866;
+					} else if(pt.y - VP > height) {
+						x = (this.x + this.y - 2 * mapSize + 1) * r * 1.5;
+						y = (this.y - this.x - mapSize) * r * .866;
+					} else {
+						x = (this.x + this.y - 3 * mapSize + 1) * r * 1.5;
+					}
+				} else {
+					if(pt.y + VP < 0) {
+						y = (this.y - this.x + 2 * mapSize) * r * .866;
+					} else if (pt.y - VP > height) {
+						y = (this.y - this.x - 2 * mapSize) * r * .866;
+					} else {
+						return;
+					}
+				} // partial fix for wraparound map
 			}
 			t.beginPath();
 			t.moveTo(x + r, y);
@@ -634,6 +652,7 @@
 			this.landUnits = 0;
 			this.seaUnits = 0;
 			this.airUnits = 0;
+			this.tileList = [];
 		}
 		get units() {
 			return this.landUnits + this.seaUnits + this.airUnits;
@@ -676,17 +695,16 @@
 	c.addEventListener('mouseup',function(evt){
 		moved = true;
 		mouse.dragStart = null;
-		// if (!dragged) zoom(evt.shiftKey ? -1 : 1 );
 	},false);
 	c.addEventListener('click',function(evt){
 		if(mouse.dragged) return;
-		if(player.god == true){
+		if(Player.god == true){
 			let pt = t.transformedPoint(mouse.x,mouse.y),
 			hex = Hex.round(pt.x, pt.y);
 			hex.type++;
 			if(hex.type > 3) hex.type = 0;
 			hex.color = colors[hex.type];
-			moved = true; // hack: force draw() to re-render map
+			moved = true;
 		}
 	},false);
 	c.addEventListener('contextmenu',function(evt){
@@ -699,10 +717,7 @@
 			case 50: historyButton.click(); break;
 			case 51: statsButton.click(); break;
 		}
-		keys[evt.keyCode] = 1 - evt.shiftKey * .866;
-		// shift key decreases movement speed
-		// no increment (does not keep track of how long the key is pressed)
-		// else keys[evt.keyCode] *= scaleFactor;
+		keys[evt.keyCode] = 1 - evt.shiftKey * .866; // shift for slower movement
 	});
 	document.addEventListener('keyup',function(evt){
 		keys[evt.keyCode] = 0;
@@ -713,6 +728,7 @@
 		trackTransforms(t);
 		mouse.x = width / 2;
 		mouse.y = width / 2;
+		moved = true;
 	});
 	function zoom(clicks){
 		moved = true;
@@ -826,9 +842,14 @@
 		moved = true;
 	}
 	// importMap("vkisfod,ewpm2oal,if376btp,ewofggbd,begwwf9x,1hd780k,ieydxy4w,3q64aakw,ihf6a9es,lxcvjbr4,4dulwetd,282dc,in0fdzkl,noi2nuop,imw4jxgl,ipbr4fv9,4ecbzur5,ikvkwfa7,15ft74cpp,zdbmp3qh,12ga122vp", 21);
-	importMap("vkisfod,ewoi4arh,2saawou9nh,3h4rgajdll,3h198khnit,1ha2ul0,ieydxy4w,3q64aakw,ihf6a9es,2sdt1xdrgg,2rw9o3kcn5,1k4k5dr7k,in0fdzi8,nodmuckc,2rwhlpdtlx,23cm6vde8l,4ecbzur5,8b71tlcv3,7dxjsh3kt,2vvi0f1ezt,2uegka0kyd,3haarsuy4g,50v5zzxeps,3uqyoqbjcw,2zkhzr5es0", mapSize);
-	// player.god = true; // edit map with this
-	draw();
+	importMap("vkisfod,ewoi4arh,2saawou9nh,3h4rgajdll,3h198khnit,1ha2ul0,ieydxy4w,3q64aakw,ihf6a9es,2sdt1xdrgg,2rw9o3kcn5,1k4k5dr7k,in0fdzi8,nodmuckc,2rwhlpdtlx,23cm6vde8l,4ecbzur5,8b71tlcv3,7dxjsh3kt,2vvi0f1ezt,2uegka0kyd,3haarsuy4g,50v5zzxeps,3uqyoqbjcw,2zkhzr5es0", mapSize); /* // map stats:
+	sea tiles: 327 (52.32%)
+	plains tiles: 233 (37.28%)
+	desert tiles: 32 (5.12%)
+	mountain tiles: 33 (5.28%)
+	*/
+	// importMap("annext,is0the0,best0game,ever0made,everyone0,should0,play0it0,because0,you0get0,to0rule0,the0whole,world0000",12);
+	// Player.god = true; // edit map with this
 	</script>
 </body>
 </html>
