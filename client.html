@@ -177,7 +177,7 @@
 			xform = xform.multiply(m2); return transform.call(t,a,b,c,d,e,f); };
 		t.setTransform = function(a,b,c,d,e,f){ xform.a = a; xform.b = b; xform.c = c; xform.d = d; xform.e = e;
 			xform.f = f; return setTransform.call(t,a,b,c,d,e,f); };
-		t.transformedPoint = function(x,y){ pt.x=x; pt.y=y; return pt.matrixTransform(xform.inverse()); }
+		t.transformedPoint = function(x,y){ pt.x=x; pt.y=y; return pt.matrixTransform(xform.inverse()); };
 		t.originalPoint = function(x,y){ pt.x=x; pt.y=y; return pt.matrixTransform(xform); };
 	}
 	</script>
@@ -492,18 +492,17 @@
 		});
 	});
 	//*/
-	let width = window.innerWidth, height = window.innerHeight - 64 /*height of top tab*/, keyspressed = [], timer;
-	const scaleFactor = 1.04, t = c.getContext('2d'), r = 16, colors = ["#003fcf","#00ff3f","#cfcf00","#7f7f7f"],
-	map = new Array(20), mouse = {
-		x: width / 2, y: height / 2, dragged: false, dragStart: null
+	let width = window.innerWidth, height = window.innerHeight - 64 /*height of top tab*/, keys = new Array(100).fill(0), timer, mapSize = 25, moved = true;
+	const scaleFactor = 1.05, t = c.getContext('2d'), r = 16, colors = ["#003fcf","#00ff3f","#cfcf00","#7f7f7f"],
+	map = new Array(mapSize), mouse = {
+		x: width / 2, y: height / 2, dragged: false, dragStart: null, scale: 1
 	};
 	trackTransforms(t);
-	c.width = width; c.height = height;
+	// c.width = width; c.height = height;
 	t.strokeStyle = "#000";
 	t.lineWidth = 1;
 	t.translate(width / 2, height / 2);
-	t.scale(2, 2);
-	let s = 1;
+	// t.scale(2, 2);
 	class Hex {
 		constructor(x, y, type){
 			this.type = type;
@@ -518,28 +517,32 @@
 		}
 		get neighbors(){
 			return [ // does this really work?
-				map[mod(this.x + 1, 21)][this.y],
-				map[mod(this.x + 1, 21)][mod(this.y - 1, 21)],
-				map[this.x][mod(this.y - 1, 21)],
-				map[mod(this.x - 1, 21)][this.y],
-				map[mod(this.x - 1, 21)][mod(this.y + 1, 21)],
-				map[this.x][mod(this.y + 1, 21)],
+				map[mod(this.x + 1, )][this.y],
+				map[mod(this.x + 1, mapSize)][mod(this.y - 1, mapSize)],
+				map[this.x][mod(this.y - 1, mapSize)],
+				map[mod(this.x - 1, mapSize)][this.y],
+				map[mod(this.x - 1, mapSize)][mod(this.y + 1, mapSize)],
+				map[this.x][mod(this.y + 1, mapSize)],
 			];
 		}
 		draw(color){
-			let x = (this.x + this.y) * r * 1.5 - 30 * r, y = (this.y - this.x) * r * .866;
-			let pt = t.originalPoint(x, y), z = t.getTransform.a, HP = r * z * .75, VP = r * z * .866;
+			let x = (this.x + this.y - mapSize + 1) * r * 1.5, y = (this.y - this.x) * r * .866;
+			let pt = t.originalPoint(x, y), HP = r * t.getTransform().a, VP = HP * .866;
+			// HP = VP = 0;
 			// zoom, horizontal/vertical padding
+			
 			if(pt.x + HP < 0 || pt.x - HP > width || pt.y + VP < 0 || pt.y - VP > height){
-				if(pt.x + HP < 0) pt.x = mod(pt.x, 60 * r) + 60 * r;
-				else if(pt.x - HP > width) pt.x = mod(pt.x, 60 * r) - 60 * r;
-				if(pt.y + VP < 0) pt.y = mod(pt.x, 17.32 * r) + 17.32 * r;
-				else if(pt.y - VP > height) pt.y = mod(pt.y, 17.32 * r) - 17.32 * r;
+				return;
+				if(pt.x + HP < 0) pt.x = mod(pt.x, (mapSize - 1) * 1.5 * r) + (mapSize - 1) * 1.5 * r;
+				else if(pt.x - HP > width) pt.x = mod(pt.x, (mapSize - 1) * 1.5 * r) - (mapSize - 1) * 1.5 * r;
+				if(pt.y + VP < 0) pt.y = mod(pt.x, (mapSize - 1) * .866 * r) + (mapSize - 1) * .866 * r;
+				else if(pt.y - VP > height) pt.y = mod(pt.y, (mapSize - 1) * .866 * r) - (mapSize - 1) * .866 * r;
 				pt = t.transformedPoint(pt);
 				x = pt.x;
 				y = pt.y;
 				color = "#00ff00"; // this doesn't work
 			}
+			
 			t.beginPath();
 			t.moveTo(x + r, y);
 			t.lineTo(x + r / 2, y + r * .866);
@@ -557,33 +560,35 @@
 			}
 		}
 		static round(x, y){
-			[x, y] = [(x - 1.732 * y) / 3 / r + 10, (x + 1.732 * y) / 3 / r + 10];
+			[x, y] = [(x - 1.732 * y) / r / 3 + (mapSize - 1) / 2, (x + 1.732 * y) / r / 3 + (mapSize - 1) / 2];
 			let z = -x - y, _x = Math.round(x), _y = Math.round(y), _z = Math.round(z),
 				dx = Math.abs(x - _x), dy = Math.abs(y - _y), dz = Math.abs(z - _z),
 				dm = Math.max(dx, dy, dz);
 			if (dm == dx) {
-				return map[mod(-_y - _z, 21)][mod(_y, 21)];
+				return map[mod(-_y - _z, mapSize)][mod(_y, mapSize)];
 			} else if (dm == dy) {
-				return map[mod(_x, 21)][mod(-_x - _z, 21)];
+				return map[mod(_x, mapSize)][mod(-_x - _z, mapSize)];
 			} else if (dm == dz) {
-				return map[mod(_x, 21)][mod(_y, 21)];
+				return map[mod(_x, mapSize)][mod(_y, mapSize)];
 			} else return {draw:function(){}}; // avoid errors lol
 		}
 	}
-	for(let x = 0; x < 21; x++){
-		map[x] = new Array(21);
-		for(let y = 0; y < 21; y++){
+	for(let x = 0; x < mapSize; x++){
+		map[x] = new Array(mapSize);
+		for(let y = 0; y < mapSize; y++){
 			new Hex(x, y, 0);
 		}
 	}
 	function mod(a, b){ return a - Math.floor(a / b) * b; }
 	c.addEventListener('mousedown',function(evt){
+		moved = true;
 		mouse.x = evt.offsetX || (evt.pageX - c.offsetLeft);
 		mouse.y = evt.offsetY || (evt.pageY - c.offsetTop);
 		mouse.dragStart = t.transformedPoint(mouse.x, mouse.y);
 		mouse.dragged = false;
 	},false);
 	c.addEventListener('mousemove',function(evt){
+		moved = true;
 		mouse.x = evt.offsetX || (evt.pageX - c.offsetLeft);
 		mouse.y = evt.offsetY || (evt.pageY - c.offsetTop);
 		mouse.dragged = true;
@@ -593,26 +598,32 @@
 		}
 	},false);
 	c.addEventListener('mouseup',function(evt){
+		moved = true;
 		mouse.dragStart = null;
 		// if (!dragged) zoom(evt.shiftKey ? -1 : 1 );
 	},false);
 	c.addEventListener('click',function(evt){
+		if(mouse.dragged) return;
 		if(player.god == true){
 			let pt = t.transformedPoint(mouse.x,mouse.y),
 			hex = Hex.round(pt.x, pt.y);
 			hex.type++;
 			if(hex.type > 3) hex.type = 0;
 			hex.color = colors[hex.type];
-			_mx++; // hack: force draw() to re-render map
-		}
-		if(!mouse.dragStart){
-
+			moved = true; // hack: force draw() to re-render map
 		}
 	},false);
 	c.addEventListener('contextmenu',function(evt){
 		evt.preventDefault();
 		return false;
 	},false);
+	document.addEventListener('keydown',function(evt){
+		keys[evt.keyCode] = 1; // no increment (does not keep track of how long the key is pressed)
+		// else keys[evt.keyCode] *= scaleFactor;
+	});
+	document.addEventListener('keyup',function(evt){
+		keys[evt.keyCode] = 0;
+	});
 	window.addEventListener('resize',function(evt){
 		c.width = width = window.innerWidth;
 		c.height = height = window.innerHeight - 64;
@@ -621,38 +632,51 @@
 		mouse.y = width / 2;
 	});
 	function zoom(clicks){
-		var pt = t.transformedPoint(mouse.x,mouse.y);
+		moved = true;
+		let pt = t.transformedPoint(mouse.x,mouse.y), factor = Math.pow(scaleFactor,clicks);
+		t.save();
 		t.translate(pt.x,pt.y);
-		var factor = Math.pow(scaleFactor,clicks), m = t.getTransform();
+		/*
 		if(factor < 1 && m.a <= 1) {
 			t.setTransform(1, m.b, m.c, 1, m.e, m.f);
 		} else if(factor > 1 && m.a >= 8) {
 			t.setTransform(8, m.b, m.c, 8, m.e, m.f);
-		} else t.scale(factor,factor);
+		} else */t.scale(factor,factor);
 		t.translate(-pt.x,-pt.y);
+		let a = t.getTransform().a;
+		if(a < 1 || a > 8) t.restore();
 	}
 	addWheelListener(c,function(evt){
 		zoom(Math.min(Math.max(evt.deltaY / 100, -8), 8));
 		return evt.preventDefault() && false;
 	});
-	let interval = 30, now, then = Date.now(), delta, _mx = mouse.x, _my = mouse.y, _mz = t.getTransform().a;
+	let interval = 20, now, then = Date.now(), delta;
 	// FPS controller and input check for optimizations
 	function draw(){
 		timer = requestAnimationFrame(draw);
 		now = Date.now();
 		delta = now - then;
 		if(delta <= interval) return;
-		if(_mx == mouse.x && _my == mouse.y && _mz == t.getTransform().a) return;
-		_mx = mouse.x;
-		_my = mouse.y;
-		_mz = t.getTransform().a;
+		/*
+		let movement = 5 / t.getTransform().a;
+		if(keys[65] || keys[37]) t.translate(-movement, 0), moved = true; // Ok
+		if(keys[87] || keys[38]) t.translate(0, -movement), moved = true; // Not OK
+		if(keys[68] || keys[39]) t.translate(movement, 0), moved = true; // Really not OK
+		if(keys[83] || keys[40]) t.translate(0, movement), moved = true; // Seriously not OK.
+		*/
+		if(keys[68] - keys[65] || keys[83] - keys[87]) {
+			moved = true;
+			t.translate((keys[65] - keys[68]) * 2 * t.getTransform().a, (keys[87] - keys[83]) * 2 * t.getTransform().a);
+		}
+		if(!moved) return;
+		moved = false;
 		then = now - (delta % interval);
 		t.save();
 		t.setTransform(1,0,0,1,0,0);
 		t.clearRect(0, 0, width, height);
 		t.restore();
-		for(let x = 0; x < 21; x++){
-			for(let y = 0; y < 21; y++)
+		for(let x = 0; x < mapSize; x++){
+			for(let y = 0; y < mapSize; y++)
 				map[x][y].draw();
 		}
 		let pt = t.transformedPoint(mouse.x, mouse.y);
@@ -707,32 +731,35 @@
 				map[x][y].sum = sum / prng.m; //debug only - comment out if desired
 				map[x][y].color = colors[map[x][y].type];
 				// render immediately
-				_mx++;
+				moved = true;
 			}
 		}
 	}
 	function exportMap(){ // this allows maps up to 26x26 due to the doubles' 2^53 mantissa limit
-		let arr = new Array(21).fill(0);
-		for(let x = 0; x < 21; x++){
-			for(let y = 0; y < 21; y++){
+		let arr = new Array(mapSize).fill(0);
+		for(let x = 0; x < mapSize; x++){
+			for(let y = 0; y < mapSize; y++){
 				arr[x] += map[x][y].type * Math.pow(2, 2*y);
 			}
 			arr[x] = arr[x].toString(36); // compress via base36
 		}
-		prompt("Your map:",arr.join());
+		prompt("Your map: (" + mapSize + " x " + mapSize + ")",arr.join());
 	}
-	function importMap(str){
+	function importMap(str,size){
+		if(size) mapSize = size;
 		let arr = (str || prompt("Enter a map string:")).split(',');
-		if(arr.length < 21) return console.log("Something is wrong with this map string");
-		for(let x = 0; x < 21; x++){
-			arr[x] = parseInt(arr[x], 36);
-			for(let y = 0; y < 21; y++){
-				map[x][y].color = colors[map[x][y].type = arr[x] / Math.pow(2, 2*y) & 3];
+		// if(arr.length < mapSize) return console.log("Something is wrong with this map string");
+		for(let x = 0; x < mapSize; x++){
+			arr[x] = parseInt(arr[x] || 0, 36);
+			for(let y = 0; y < mapSize; y++){
+				map[x][y].color = colors[map[x][y].type = (arr[x] || 0) / Math.pow(2, 2*y) & 3];
 				//hack: & 3 both floors the result (bitwise operator) and modulo the result by 4
 			}
 		}
+		moved = true;
 	}
-	importMap("vkisfod,ewpm2oal,if376btp,ewofggbd,begwwf9x,1hd780k,ieydxy4w,3q64aakw,ihf6a9es,lxcvjbr4,4dulwetd,282dc,in0fdzkl,noi2nuop,imw4jxgl,ipbr4fv9,4ecbzur5,ikvkwfa7,15ft74cpp,zdbmp3qh,12ga122vp");
+	// importMap("vkisfod,ewpm2oal,if376btp,ewofggbd,begwwf9x,1hd780k,ieydxy4w,3q64aakw,ihf6a9es,lxcvjbr4,4dulwetd,282dc,in0fdzkl,noi2nuop,imw4jxgl,ipbr4fv9,4ecbzur5,ikvkwfa7,15ft74cpp,zdbmp3qh,12ga122vp", 21);
+	importMap("vkisfod,ewoi4arh,2saawou9nh,3h4rgajdll,3h198khnit,1ha2ul0,ieydxy4w,3q64aakw,ihf6a9es,2sdt1xdrgg,2rw9o3kcn5,1k4k5dr7k,in0fdzi8,nodmuckc,2rwhlpdtlx,23cm6vde8l,4ecbzur5,8b71tlcv3,7dxjsh3kt,2vvi0f1ezt,2uegka0kyd,3haarsuy4g,50v5zzxeps,3uqyoqbjcw,2zkhzr5es0", mapSize);
 	// player.god = true; // edit map with this
 	draw();
 	</script>
