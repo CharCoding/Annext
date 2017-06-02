@@ -8,6 +8,7 @@
 	<script type="text/javascript" src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
 	<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.98.2/js/materialize.min.js"></script>
 	<script type="text/javascript" src="js/wordgen.min.js"></script>
+	<script type="text/javascript" src="js/graphs.js"></script>
 	<meta charset="UTF-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 	<style type="text/css">
@@ -110,7 +111,7 @@
     -ms-user-select: none;
     user-select: none;
 	}
-	canvas {
+	#c {
 		position: absolute;
 		left: 0;
 		top: 0;
@@ -122,6 +123,8 @@
 		background-size: cover;
 		background-position: 0 0;
 	}
+	#historyGraph, #statsGraph { border: 2px solid white; }
+	#historyGraphTitle, #statsTitle { width: 200px !important; }
 	</style>
 	<script type="text/javascript">
 	(function(window,document) {
@@ -301,9 +304,9 @@
 			<div class="nav-wrapper indigo">
 				<div id="leftTabs">
 					<ul id="nav-content" class="left tabs tabs-transparent indigo">
-        		<li class="tab"><a href="#map">MAP</a></li>
-        		<li class="tab"><a href="#history">HISTORY</a></li>
-        		<li class="tab"><a href="#stats">STATS</a></li>
+        		<li class="tab"><a id="mapButton" href="#map">MAP</a></li>
+        		<li class="tab"><a id="historyButton" href="#history">HISTORY</a></li>
+        		<li class="tab"><a id="statsButton" href="#stats">STATS</a></li>
         		<li class="tab disabled"><a href="#battle">BATTLE</a></li>
       		</ul>
       	</div>
@@ -356,10 +359,55 @@
 			</div>
 		</div>
 		<div id="history" class="col s12 tabcontent">
-
+			<div class="container">
+				<br>
+				<center><a id="historyGraphTitle" class="dropdown-button btn pink" data-activates="historyGraphSelector">Development</a></center>
+				<ul id='historyGraphSelector' class='dropdown-content indigo-text'> <!--indigo-text class does nothing here, hence the text classes below-->
+					<li><a class="indigo-text" >Development</a></li>
+					<li><a class="indigo-text" >Population</a></li>
+					<li><a class="indigo-text" >Steel Production</a></li>
+					<li><a class="indigo-text" >Oil Production</a></li>
+					<li><a class="indigo-text" >Air Units</a></li>
+					<li><a class="indigo-text" >Land Units</a></li>
+					<li><a class="indigo-text" >Sea Units</a></li>
+					<li><a class="indigo-text" >Nuclear Weapons</a></li>
+			 </ul>
+			 <canvas id="historyGraph"></canvas>
+			</div>
 		</div>
 		<div id="stats" class="col s12 tabcontent">
-
+			<br>
+			<center><a id="statsTitle" class="dropdown-button btn pink" data-activates="statsSelector">Development</a></center>
+			<ul id='statsSelector' class='dropdown-content indigo-text'>
+				<li><a class="indigo-text">Development</a></li>
+				<li><a class="indigo-text">Population</a></li>
+				<li><a class="indigo-text">Steel Production</a></li>
+				<li><a class="indigo-text">Oil Production</a></li>
+				<li><a class="indigo-text">Air Units</a></li>
+				<li><a class="indigo-text">Land Units</a></li>
+				<li><a class="indigo-text">Sea Units</a></li>
+				<li><a class="indigo-text">Tiles</a></li>
+				<li><a class="indigo-text">Nuclear Weapons</a></li>
+		 </ul></center>
+		 <br>
+		 <div class="row">
+			 <div class="col s6">
+				 <table id="statsTable" class="highlight white-text">
+					 <thead>
+						 <tr>
+							 <th>Player</th>
+							 <th id="statsTableHeading">Development</th>
+							 <th id="statsTablePercentHeading">% of World Development</th>
+						 </tr>
+					 </thead>
+					 <tbody id="statBody">
+					 </tbody>
+				 </table>
+			 </div>
+			 <div class="col s6">
+				 <canvas id="statsGraph"></canvas>
+			 </div>
+			</div>
 		</div>
 		<div id="battle" class="col s12 tabcontent">
 
@@ -402,18 +450,6 @@
 		</div>
 	</div>
 	<script type="text/javascript">
-	var player = {
-		countryName: "",
-		capital: {
-			x: 0,
-			y: 0,
-			z: 0,
-			name: "",
-			captured: false
-		},
-		$development: 0,
-		$city: 0,
-	};
 	$(document).ready(function(){
 		const countryRegex = /^[a-z]+( ?[a-z]+)+ ?[a-z]$/i;
 		$('#countryInput').on('change input',function(){
@@ -425,10 +461,8 @@
 			$('#home').animate({"left": "-100%"}, 400);
 			$('#game').animate({"left": "0"}, 400);
 			$('#countryModal').modal({dismissible: false, inDuration: 250, complete: function() {
-				if(player.countryName && $('#countryInput').val().trim() == '') return;
-				if($('#countryInput').val().trim() == '') player.countryName = word(2,1).capitalize();
-				else player.countryName = $('#countryInput').val().capitalize();
-				$('#countryName').text(' ' + player.countryName);
+				players.push(new Player($('#countryInput').val().capitalize()));
+				$('#countryName').text(players[0].name);
 				$('#countryModal').remove();
 				// TODO: Send country object to server
 			}});
@@ -449,8 +483,23 @@
 			$('#submitName').removeClass('disabled');
 			Materialize.updateTextFields();
 		});
+		$('#historyGraphSelector').on('click', function() {
+			var type = event.target.innerHTML;
+			historyGraphTitle.innerHTML = type;
+			//drawGraph(historyGraph.getContext('2d'), getDataSet(type, players), "line", true)
+		});
+		$('#statsSelector').on('click', function() {
+			this.style.width = "144px";
+			var type = event.target.innerHTML;
+			statsTitle.innerHTML = type;
+			statsTableHeading.innerHTML = type;
+			statsTablePercentHeading.innerHTML = "% of World " + type;
+		});
 		Materialize.updateTextFields();
 		$(window).on('resize',canvasSize);
+		//GRAPH TESTS (remove after functionality for getting player data is in place):
+		drawGraph(historyGraph.getContext('2d'), testDataSet, "line", true);
+		drawGraph(statsGraph.getContext('2d'), testDataSet, "pie", true);
 	});
 	function canvasSize(){
 		c.width = $('#c').width();
@@ -492,13 +541,17 @@
 		});
 	});
 	//*/
-	let width = window.innerWidth, height = window.innerHeight - 64 /*height of top tab*/, keys = new Array(100).fill(0), timer, mapSize = 25, moved = true;
-	const scaleFactor = 1.05, t = c.getContext('2d'), r = 16, colors = ["#003fcf","#00ff3f","#cfcf00","#7f7f7f"],
+	let width = window.innerWidth, height = window.innerHeight - 64 /*height of top tab*/, keys = new Array(100).fill(0), timer,  mapSize = 25, moved = true;
+	const scaleFactor = 1.04, t = c.getContext('2d'), hgraph = historyGraph.getContext('2d'),
+	r = 16, colors = ["#003fcf","#00ff3f","#cfcf00","#7f7f7f"],
 	map = new Array(mapSize), mouse = {
 		x: width / 2, y: height / 2, dragged: false, dragStart: null, scale: 1
-	};
+	}, players = [];
 	trackTransforms(t);
-	// c.width = width; c.height = height;
+	historyGraph.width = width / 1.5; historyGraph.height = height / 1.5;
+	statsGraph.width = width / 2.5; statsGraph.height = height / 2;
+	hgraph.fillStyle = "red";
+	hgraph.fillText("NO DATA", historyGraph.width / 2, historyGraph.height / 2);
 	t.strokeStyle = "#000";
 	t.lineWidth = 1;
 	t.translate(width / 2, height / 2);
@@ -510,6 +563,7 @@
 			this.x = x;
 			this.y = y;
 			this.owner = null;
+			this.cities = 0;
 			this.buildings = [];
 			this.units = [];
 			this.isCapital = false;
@@ -530,7 +584,6 @@
 			let pt = t.originalPoint(x, y), HP = r * t.getTransform().a, VP = HP * .866;
 			// HP = VP = 0;
 			// zoom, horizontal/vertical padding
-			
 			if(pt.x + HP < 0 || pt.x - HP > width || pt.y + VP < 0 || pt.y - VP > height){
 				return;
 				if(pt.x + HP < 0) pt.x = mod(pt.x, (mapSize - 1) * 1.5 * r) + (mapSize - 1) * 1.5 * r;
@@ -542,7 +595,6 @@
 				y = pt.y;
 				color = "#00ff00"; // this doesn't work
 			}
-			
 			t.beginPath();
 			t.moveTo(x + r, y);
 			t.lineTo(x + r / 2, y + r * .866);
@@ -573,11 +625,35 @@
 			} else return {draw:function(){}}; // avoid errors lol
 		}
 	}
+	class Player {
+		constructor(country){
+			this.name = country;
+			this.capital = { x: -1, y: -1 };
+			this.development = 0;
+			this.buildings = 0;
+			this.landUnits = 0;
+			this.seaUnits = 0;
+			this.airUnits = 0;
+		}
+		get units() {
+			return this.landUnits + this.seaUnits + this.airUnits;
+		}
+		chat(msg) {
+			// webSocket majikz
+		}
+		addUnit(x, y, units){
+			let hex = map[x][y];
+			// more webSocket majikz and map majikz
+		}
+		build(x, y, building){
+			let hex = map[x][y];
+			// even more webSocket majikz and map majikz
+		}
+	}
 	for(let x = 0; x < mapSize; x++){
 		map[x] = new Array(mapSize);
-		for(let y = 0; y < mapSize; y++){
+		for(let y = 0; y < mapSize; y++)
 			new Hex(x, y, 0);
-		}
 	}
 	function mod(a, b){ return a - Math.floor(a / b) * b; }
 	c.addEventListener('mousedown',function(evt){
@@ -618,7 +694,14 @@
 		return false;
 	},false);
 	document.addEventListener('keydown',function(evt){
-		keys[evt.keyCode] = 1; // no increment (does not keep track of how long the key is pressed)
+		switch(evt.keyCode){
+			case 49: mapButton.click(); break;
+			case 50: historyButton.click(); break;
+			case 51: statsButton.click(); break;
+		}
+		keys[evt.keyCode] = 1 - evt.shiftKey * .866;
+		// shift key decreases movement speed
+		// no increment (does not keep track of how long the key is pressed)
 		// else keys[evt.keyCode] *= scaleFactor;
 	});
 	document.addEventListener('keyup',function(evt){
@@ -636,12 +719,7 @@
 		let pt = t.transformedPoint(mouse.x,mouse.y), factor = Math.pow(scaleFactor,clicks);
 		t.save();
 		t.translate(pt.x,pt.y);
-		/*
-		if(factor < 1 && m.a <= 1) {
-			t.setTransform(1, m.b, m.c, 1, m.e, m.f);
-		} else if(factor > 1 && m.a >= 8) {
-			t.setTransform(8, m.b, m.c, 8, m.e, m.f);
-		} else */t.scale(factor,factor);
+		t.scale(factor,factor);
 		t.translate(-pt.x,-pt.y);
 		let a = t.getTransform().a;
 		if(a < 1 || a > 8) t.restore();
@@ -657,16 +735,10 @@
 		now = Date.now();
 		delta = now - then;
 		if(delta <= interval) return;
-		/*
-		let movement = 5 / t.getTransform().a;
-		if(keys[65] || keys[37]) t.translate(-movement, 0), moved = true; // Ok
-		if(keys[87] || keys[38]) t.translate(0, -movement), moved = true; // Not OK
-		if(keys[68] || keys[39]) t.translate(movement, 0), moved = true; // Really not OK
-		if(keys[83] || keys[40]) t.translate(0, movement), moved = true; // Seriously not OK.
-		*/
-		if(keys[68] - keys[65] || keys[83] - keys[87]) {
+		if(keys[68] - keys[65] || keys[83] - keys[87] || keys[38] - keys[40]) {
 			moved = true;
 			t.translate((keys[65] - keys[68]) * 2 * t.getTransform().a, (keys[87] - keys[83]) * 2 * t.getTransform().a);
+			zoom(keys[38] - keys[40]);
 		}
 		if(!moved) return;
 		moved = false;
@@ -703,21 +775,18 @@
 		levelNumbers = [1000, 1000, 1000, 1000], //number of tiles for each level that will need to be generated to fill map (optimize later)
 		levels = [], //values for each level
 		levelMultipliers = [0.1, 0.2, 0.3, 0.2, 0.2]; //weights assigned to sum of each level (should add to 1)
-		for (let i = 0; i < levelSizes.length; i++) {
+		for (let i = 0; i < levelSizes.length; i++)
 			//levelNumbers.push(Math.ceil(Math.pow(24, 2) / Math.pow(levelSizes[i], 2)));
 			levels.push(new Array(levelNumbers[i]));
-		}
 		for (let i = 0; i < levels.length; i++) {
-			for (let j = 0; j < levels[i].length; j++) {
+			for (let j = 0; j < levels[i].length; j++)
 				levels[i][j] = prng.next();
-			}
 		}
 		for (let x = 0; x < map.length; x++) {
 			for (let y = 0; y < map[x].length; y++) {
 				var sum = 0;
-				for (let a = 0; a < levelMultipliers.length - 1; a++) {
+				for (let a = 0; a < levelMultipliers.length - 1; a++)
 					sum += (levels[a][Math.floor(x / levelSizes[a]) * levelSizes[a] + Math.floor(y / levelSizes[a])]) * levelMultipliers[a];
-				}
 				sum += prng.next() * levelMultipliers[levelMultipliers.length - 1];
 				if (sum / prng.m > borderMountain) {
 					map[x][y].type = 3;
@@ -738,9 +807,8 @@
 	function exportMap(){ // this allows maps up to 26x26 due to the doubles' 2^53 mantissa limit
 		let arr = new Array(mapSize).fill(0);
 		for(let x = 0; x < mapSize; x++){
-			for(let y = 0; y < mapSize; y++){
+			for(let y = 0; y < mapSize; y++)
 				arr[x] += map[x][y].type * Math.pow(2, 2*y);
-			}
 			arr[x] = arr[x].toString(36); // compress via base36
 		}
 		prompt("Your map: (" + mapSize + " x " + mapSize + ")",arr.join());
@@ -751,10 +819,9 @@
 		// if(arr.length < mapSize) return console.log("Something is wrong with this map string");
 		for(let x = 0; x < mapSize; x++){
 			arr[x] = parseInt(arr[x] || 0, 36);
-			for(let y = 0; y < mapSize; y++){
+			for(let y = 0; y < mapSize; y++)
 				map[x][y].color = colors[map[x][y].type = (arr[x] || 0) / Math.pow(2, 2*y) & 3];
 				//hack: & 3 both floors the result (bitwise operator) and modulo the result by 4
-			}
 		}
 		moved = true;
 	}
