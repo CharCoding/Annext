@@ -125,7 +125,7 @@
 		background-position: 0 0;
 	}
 	#historyGraph, #statsGraph { border: 2px solid white; }
-	#historyGraphTitle, #statsTitle { width: 200px; }
+	#historyGraphTitle, #statsTitle { width: 216px; }
 	</style>
 	<script type="text/javascript">
 	(function(window,document) {
@@ -359,24 +359,24 @@
 				</ul>
 			</div>
 		</div>
-		<div id="history" class="col s12 tabcontent">
+		<div id="history" class="col s12 tabcontent indigo lighten-4">
 			<div class="container">
 				<br>
 				<center><a id="historyGraphTitle" class="dropdown-button btn pink" data-activates="historyGraphSelector">Development</a></center>
 				<ul id='historyGraphSelector' class='dropdown-content indigo-text'> <!--indigo-text class does nothing here, hence the text classes below-->
-					<li><a class="indigo-text" >Development</a></li>
-					<li><a class="indigo-text" >Population</a></li>
-					<li><a class="indigo-text" >Steel Production</a></li>
-					<li><a class="indigo-text" >Oil Production</a></li>
-					<li><a class="indigo-text" >Air Units</a></li>
-					<li><a class="indigo-text" >Land Units</a></li>
-					<li><a class="indigo-text" >Sea Units</a></li>
-					<li><a class="indigo-text" >Nuclear Weapons</a></li>
+					<li><a class="indigo-text">Development</a></li>
+					<li><a class="indigo-text">Population</a></li>
+					<li><a class="indigo-text">Steel Production</a></li>
+					<li><a class="indigo-text">Oil Production</a></li>
+					<li><a class="indigo-text">Air Units</a></li>
+					<li><a class="indigo-text">Land Units</a></li>
+					<li><a class="indigo-text">Sea Units</a></li>
+					<li><a class="indigo-text">Nuclear Weapons</a></li>
 			 </ul>
 			 <canvas id="historyGraph"></canvas>
 			</div>
 		</div>
-		<div id="stats" class="col s12 tabcontent">
+		<div id="stats" class="col s12 tabcontent indigo lighten-4">
 			<br>
 			<center><a id="statsTitle" class="dropdown-button btn pink" data-activates="statsSelector">Development</a></center>
 			<ul id='statsSelector' class='dropdown-content indigo-text'>
@@ -543,6 +543,7 @@
 	c.height = height;
 	const scaleFactor = 1.04, t = c.getContext('2d'), hgraph = historyGraph.getContext('2d'),
 	r = 16, colors = ["#003fcf","#00ff3f","#cfcf00","#7f7f7f"],
+	MDcolors = [],
 	map = new Array(mapSize), mouse = {
 		x: width / 2, y: height / 2, dragged: false, dragStart: null, scale: 1
 	}, players = [];
@@ -579,38 +580,33 @@
 			];
 		}
 		draw(color){
-			let x = (this.x + this.y - mapSize + 1) * r * 1.5, y = (this.y - this.x) * r * .866;
-			let pt = t.originalPoint(x, y), z = t.getTransform().a, HP = r * z, VP = HP * .866;
+			let x = (this.x + this.y - mapSize + 1) * r * 1.5, y = (this.y - this.x) * r * .866,
+				pt = t.originalPoint(x, y), HP = r * t.getTransform().a, VP = HP * .866;
 			// zoom, horizontal/vertical padding
 			if(pt.x + HP < 0 || pt.x - HP > width || pt.y + VP < 0 || pt.y - VP > height){
+				let Hshift = mapSize * r * 1.5, Vshift = mapSize * r * .866;
 				if(pt.x + HP < 0) {
-					if(pt.y + VP < 0) {
-						x = (this.x + this.y + 1) * r * 1.5;
-						y = (this.y - this.x + mapSize) * r * .866;
-					} else if(pt.y - VP > height){
-						x = (this.x + this.y + 1) * r * 1.5;
-						y = (this.y - this.x - mapSize) * r * .866;
-					} else {
-						x = (this.x + this.y + mapSize + 1) * r * 1.5;
-					}
+					x += Hshift;
+					if(pt.y < height / 2)
+						y += Vshift;
+					else
+						y -= Vshift;
 				} else if(pt.x - HP > width) {
-					if(pt.y + VP < 0) {
-						x = (this.x + this.y - 2 * mapSize + 1) * r * 1.5;
-						y = (this.y - this.x + mapSize) * r * .866;
-					} else if(pt.y - VP > height) {
-						x = (this.x + this.y - 2 * mapSize + 1) * r * 1.5;
-						y = (this.y - this.x - mapSize) * r * .866;
-					} else {
-						x = (this.x + this.y - 3 * mapSize + 1) * r * 1.5;
-					}
+					x -= Hshift;
+					if(pt.y < height / 2)
+						y += Vshift;
+					else
+						y -= Vshift;
 				} else {
-					if(pt.y + VP < 0) {
-						y = (this.y - this.x + 2 * mapSize) * r * .866;
-					} else if (pt.y - VP > height) {
-						y = (this.y - this.x - 2 * mapSize) * r * .866;
-					} else {
-						return;
-					}
+					if(pt.y + VP < 0)
+						y += Vshift;
+					else if (pt.y - VP > height)
+						y -= Vshift;
+					else return;
+					if(pt.x < width / 2)
+						x += Hshift;
+					else
+						x -= Hshift;
 				} // partial fix for wraparound map
 			}
 			t.beginPath();
@@ -838,6 +834,14 @@
 		map[x] = new Array(mapSize);
 		for(let y = 0; y < mapSize; y++)
 			new Hex(x, y, 0);
+	}
+	function changeColor(color){ // ideally this only runs once...
+		let colorScheme = MDcolors[color];
+		$('.indigo').removeClass('indigo').addClass(colorScheme[0]);
+		$('.indigo-text').removeClass('indigo-text').addClass(colorScheme[0] + '-text');
+		$('.pink').removeClass('pink').addClass(colorScheme[1]);
+		$('.pink-text').removeClass('pink-text').addClass(colorScheme[1] + '-text');
+		if(color > 4) $('.white-text').removeClass('white-text').addClass('black-text');
 	}
 	function mod(a, b){ return a - Math.floor(a / b) * b; }
 	c.addEventListener('mousedown',function(evt){
