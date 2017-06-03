@@ -567,6 +567,10 @@
 			this.buildings = [];
 			this.units = [];
 			this.isCapital = false;
+			this.development = Infinity; //reserves of each resource
+			this.steel = Infinity;
+			this.oil = Infinity;
+			this.uranium = Math.round(Math.random() * 25); //placeholder (based on manual), change at some point
 			return map[x][y] = this;
 		}
 		get neighbors(){
@@ -662,6 +666,28 @@
 				}
 			}
 		}
+		extractResources() {
+			var production = {
+				development : 0,
+				oil : 0,
+				steel : 0,
+				uranium : 0
+			}
+			for (let i = 0; i < this.buildings.length; i++) {
+				production.development += this.buildings[i].developmentProduction;
+				production.oil += this.buildings[i].oilProduction;
+				production.steel += this.buildings[i].steelProduction;
+				production.uranium += this.buildings[i].uraniumProduction;
+			}
+			for (let i in production) {
+				this[i] -= production[i];
+				if (this[i] < 0) {
+					production[i] += this[i];
+					this[i] = 0;
+				}
+			}
+			return production;
+		}
 	}
 	class Player {
 		constructor(country){
@@ -670,13 +696,14 @@
 			this.development = 0;
 			this.oil = 0;
 			this.steel = 0;
+			this.uranium = 0;
 			this.buildings = 0;
 			this.landUnits = 0;
 			this.seaUnits = 0;
 			this.airUnits = 0;
 			this.tileList = [];
 		}
-		get units() {
+		get numberOfUnits() {
 			return this.landUnits + this.seaUnits + this.airUnits;
 		}
 		chat(msg) {
@@ -690,10 +717,20 @@
 			let hex = map[x][y];
 			// even more webSocket majikz and map majikz
 		}
+		getTileResources() {
+			//assuming that Player.tileList is a list of coordinates, not tile objects
+			for (let i = 0; i < this.tileList.length; i++) {
+				let tileResources = this.tileList[i].extractResources();
+				for (let j in tileResources) {
+					this[j] += tileResources[j];
+				}
+			}
+		}
 	}
 	var costArray = ["development", "oil", "steel"];
 	class Unit {
-		constructor(typeName) {
+		constructor(typeName, ownerName) {
+			this.ownerName = ownerName;
 			this.typeName = typeName;
 			this.passengers = [];
 			this.carryPlanes = 0; //defaults (most common);
@@ -827,9 +864,33 @@
 
 		}
 	}
-
-
-
+	class Building {
+		constructor(typeName, ownerName) {
+			this.typeName = typeName;
+			this.ownerName = ownerName;
+			this.developmentProduction = 0;
+			this.steelProduction = 0;
+			this.oilProduction = 0;
+			this.uraniumProduction = 0;
+			this.buildOnLand = true;
+			this.buildOnSea = false;
+			switch (typeName) {
+				case "city":
+					this.developmentProduction = 1;
+					break;
+				case "mine":
+					this.steelProduction = 1;
+					break;
+				case "oil rig":
+					this.oilProduction = 1;
+					this.buildOnSea = true;
+					break;
+				case "uranium mine":
+					this.uraniumProduction = 1;
+					break;
+			}
+		}
+	}
 	for(let x = 0; x < mapSize; x++){
 		map[x] = new Array(mapSize);
 		for(let y = 0; y < mapSize; y++)
