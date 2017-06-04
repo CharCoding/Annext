@@ -586,35 +586,54 @@
 			];
 		}
 		draw(color){
-			let x = (this.x + this.y - mapSize + 1) * r * 1.5, y = (this.y - this.x) * r * .866,
-				pt = t.originalPoint(x, y), HP = r * t.getTransform().a, VP = HP * .866;
+			let x = (this.x + this.y) * r * 1.5, y = (this.y - this.x) * r * .866,
+			Hshift = mapSize * r * 1.5, Vshift = mapSize * r * .866;
+			/* pt = t.originalPoint(x, y), HP = r * t.getTransform().a, VP = HP * .866,
 			// zoom, horizontal/vertical padding
+			/* // solution #1: try to move the hexagons outside of viewport back in
 			if(pt.x + HP < 0 || pt.x - HP > width || pt.y + VP < 0 || pt.y - VP > height){
-				let Hshift = mapSize * r * 1.5, Vshift = mapSize * r * .866;
 				if(pt.x + HP < 0) {
 					x += Hshift;
+					var x2 = x + Hshift, y2 = y;
 					if(pt.y < height / 2)
 						y += Vshift;
 					else
 						y -= Vshift;
 				} else if(pt.x - HP > width) {
 					x -= Hshift;
+					var x2 = x - Hshift, y2 = y;
 					if(pt.y < height / 2)
 						y += Vshift;
 					else
 						y -= Vshift;
 				} else {
-					if(pt.y + VP < 0)
+					if(pt.y + VP < 0) {
 						y += Vshift;
-					else if (pt.y - VP > height)
+						var y2 = y + Vshift, x2 = x;
+					} else if (pt.y - VP > height) {
 						y -= Vshift;
-					else return;
+						var y2 = y - Vshift, x2 = x;
+					} else return;
 					if(pt.x < width / 2)
 						x += Hshift;
 					else
 						x -= Hshift;
 				} // partial fix for wraparound map
 			}
+			color = color || this.color;
+			Hex.render(x, y, color);
+			if(x2 !== undefined) Hex.render(x2, y2, color); // sorry but this still looks kind of ugly
+			*/
+			// solution #2: just paint 4 copies of the original map... (INEFFICIENCY UGHH)
+			color = color || this.color;
+			Hex.render(x, y, color);
+			Hex.render(x - Hshift * 2, y, color);
+			Hex.render(x - Hshift, y - Vshift, color);
+			Hex.render(x - Hshift, y + Vshift, color);
+		}
+		static render(x, y, color) {
+			let pt = t.originalPoint(x, y), HP = r * t.getTransform().a, VP = HP * .866;
+			if(pt.x + HP < 0 || pt.x - HP > width || pt.y + VP < 0 || pt.y - VP > height) return;
 			t.beginPath();
 			t.moveTo(x + r, y);
 			t.lineTo(x + r / 2, y + r * .866);
@@ -627,12 +646,12 @@
 				t.strokeStyle = "#ffffff";
 				t.stroke();
 			} else {
-				t.fillStyle = color || this.color;
+				t.fillStyle = color;
 				t.fill();
 			}
 		}
 		static round(x, y){
-			[x, y] = [(x - 1.732 * y) / r / 3 + (mapSize - 1) / 2, (x + 1.732 * y) / r / 3 + (mapSize - 1) / 2];
+			[x, y] = [(x - 1.732 * y) / r / 3, (x + 1.732 * y) / r / 3];
 			let z = -x - y, _x = Math.round(x), _y = Math.round(y), _z = Math.round(z),
 				dx = Math.abs(x - _x), dy = Math.abs(y - _y), dz = Math.abs(z - _z),
 				dm = Math.max(dx, dy, dz);
@@ -936,7 +955,7 @@
 		t.scale(factor,factor);
 		t.translate(-pt.x,-pt.y);
 		let a = t.getTransform().a;
-		if(a < 1 || a > 8) t.restore();
+		if(a < 0.866 || a > 8) t.restore();
 	}
 	addWheelListener(c,function(evt){
 		zoom(Math.min(Math.max(evt.deltaY / 100, -8), 8));
