@@ -564,7 +564,9 @@
 			this.y = y;
 			this.owner = null;
 			this.cities = 0;
-			this.buildings = [];
+			this.mines = 0;
+			this.oilRigs = 0;
+			this.uraniumMines = 0;
 			this.units = [];
 			this.isCapital = false;
 			this.development = Infinity; //reserves of each resource
@@ -668,16 +670,10 @@
 		}
 		extractResources() {
 			var production = {
-				development : 0,
-				oil : 0,
-				steel : 0,
-				uranium : 0
-			}
-			for (let i = 0; i < this.buildings.length; i++) {
-				production.development += this.buildings[i].developmentProduction;
-				production.oil += this.buildings[i].oilProduction;
-				production.steel += this.buildings[i].steelProduction;
-				production.uranium += this.buildings[i].uraniumProduction;
+				development : this.cities,
+				oil : this.oilRigs,
+				steel : this.mines,
+				uranium : this.uraniumMines
 			}
 			for (let i in production) {
 				this[i] -= production[i];
@@ -862,33 +858,6 @@
 		}
 		die() {
 
-		}
-	}
-	class Building {
-		constructor(typeName, ownerName) {
-			this.typeName = typeName;
-			this.ownerName = ownerName;
-			this.developmentProduction = 0;
-			this.steelProduction = 0;
-			this.oilProduction = 0;
-			this.uraniumProduction = 0;
-			this.buildOnLand = true;
-			this.buildOnSea = false;
-			switch (typeName) {
-				case "city":
-					this.developmentProduction = 1;
-					break;
-				case "mine":
-					this.steelProduction = 1;
-					break;
-				case "oil rig":
-					this.oilProduction = 1;
-					this.buildOnSea = true;
-					break;
-				case "uranium mine":
-					this.uraniumProduction = 1;
-					break;
-			}
 		}
 	}
 	for(let x = 0; x < mapSize; x++){
