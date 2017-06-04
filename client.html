@@ -73,14 +73,13 @@
 		box-shadow: 0 1px 0 0 #E91E63;
 	}
 	#logo { padding-left: 8px; padding-top: 8px; }
-	#action { display: none; }
-	.circle { /* Can't believe they don't have this class. Well, here goes browser-compatibility... */
-		width: 48px;
-		height: 48px;
+	#action { display: none; transition: margin-right 200ms ease-out; }
+	#action.shifted { margin-right: 400px; }
+	#closeChat {
+		width: 64px;
+		height: 64px;
 		text-align: center;
 		padding: 0 !important;
-		margin: 0 !important;
-		border-radius: 50%;
 	}
 	#leftTabs {
 		position: relative;
@@ -90,9 +89,7 @@
 		width: auto;
 		overflow-x: visible;
 	}
-	#leftTabs ul, #leftTabs li {
-		height: 64px;
-	}
+	#leftTabs ul, #leftTabs li { height: 64px; }
 	#leftTabs a {
 		height: 64px;
 		padding: 8px 24px;
@@ -126,6 +123,31 @@
 	}
 	#historyGraph, #statsGraph { border: 2px solid white; }
 	#historyGraphTitle, #statsTitle { width: 216px; }
+	#sidenav-overlay { display: none !important; }
+	#msg {
+		position: fixed;
+		top: 64px;
+		bottom: 48px;
+		width: 100%;
+		overflow-y: auto;
+	}
+	#msg .col { width: 364px; }
+	#msg .col.icon { width: 36px; padding: 0 6px; }
+	#msg .circle {
+		min-width: 36px;
+		width: 36px;
+		height: 36px;
+		text-align: center;
+		font-size: 12px;
+		padding: 8px 0;
+		display: inline-block;
+	}
+	#typingArea {
+		width: 100%;
+		height: 48px;
+		position: fixed;
+		bottom: 48px;
+	}
 	</style>
 	<script type="text/javascript">
 	(function(window,document) {
@@ -207,98 +229,6 @@
 			</div>
 		</div>
 		<p id="credits">&copy; 2017 Annext by <a class="pink-text" href="http://github.com/CharCoding/" title="GitHub">CharCoding</a>, All Rights Reserved.</p>
-		<!-- We might not need this, since all servers are forwarded to ngrok.io -->
-		<!--div id="load" class="preloader-wrapper active">
-			<div class="spinner-layer spinner-blue">
-				<div class="circle-clipper left">
-					<div class="circle"></div>
-				</div><div class="gap-patch">
-					<div class="circle"></div>
-				</div><div class="circle-clipper right">
-					<div class="circle"></div>
-				</div>
-			</div>
-			<div class="spinner-layer spinner-red">
-				<div class="circle-clipper left">
-					<div class="circle"></div>
-				</div><div class="gap-patch">
-					<div class="circle"></div>
-				</div><div class="circle-clipper right">
-					<div class="circle"></div>
-				</div>
-			</div>
-			<div class="spinner-layer spinner-yellow">
-				<div class="circle-clipper left">
-					<div class="circle"></div>
-				</div><div class="gap-patch">
-					<div class="circle"></div>
-				</div><div class="circle-clipper right">
-					<div class="circle"></div>
-				</div>
-			</div>
-			<div class="spinner-layer spinner-green">
-				<div class="circle-clipper left">
-					<div class="circle"></div>
-				</div><div class="gap-patch">
-					<div class="circle"></div>
-				</div><div class="circle-clipper right">
-					<div class="circle"></div>
-				</div>
-			</div>
-		</div>
-		<ul id="games" class="collection with-header">
-			<li class="collection-header">
-				<h4>Games<a id="createbtn" class="btn-floating waves-effect waves-light indigo secondary-content right-align"><i class="material-icons">add</i></a></h4>
-			</li>
-			<li class="collection-item avatar">
-				<i class="material-icons circle white green-text">public</i>
-				<span class="title">AnnexTheWorld</span>
-				<p><span class="green-text">3 / 8</span><br />Earth</p>
-				<a href="" class="secondary-content"><i class="material-icons medium">keyboard_arrow_right</i></a>
-			</li>
-			<li class="collection-item avatar">
-				<i class="material-icons circle red">lock</i>
-				<span class="title">New Imperialism</span>
-				<p><span class="green-text">5 / 8</span><br />The World of AMOC</p>
-				<a id="privateGame" href="" class="secondary-content"><i class="material-icons medium">keyboard_arrow_right</i></a>
-			</li>
-			<li class="collection-item avatar">
-				<i class="material-icons circle white green-text">public</i>
-				<span class="title">World Domination 101</span>
-				<p><span class="red-text">8 / 8</span><br />Random Map</p>
-				<a href="" class="secondary-content"><i class="material-icons orange-text medium">keyboard_arrow_right</i></a>
-			</li>
-		</ul>
-		<div id="create" class="modal modal-fixed-footer">
-			<div class="modal-content">
-				<h4>Create Game</h4>
-				<div class="row">
-					<div class="col s6 input-field">
-						<input type="text" id="name" class="validate" required="required" maxlength="24" /><label for="name">Game Name</label>
-					</div>
-					<div class="col s6 input-field">
-						<input type="checkbox" id="private" /><label for="private">Private</label>
-					</div>
-				</div>
-				<div class="row">
-					<div class="col s6 input-field">
-						<input type="password" id="password" class="validate" required="required" disabled="disabled" /><label for="password">Password</label>
-					</div>
-					<div class="col s6 input-field">
-						<select>
-							<option value="1" selected="selected">Earth</option>
-							<option value="2">The World of AMOC</option>
-							<option value="3">Randomized</option>
-						</select>
-						<label>Map</label>
-					</div>
-				</div>
-			</div>
-			<div class="modal-footer">
-				<a href="#!" class="modal-action modal-close blue-text waves-effect waves-blue btn-flat">Create</a>
-				<a href="#!" class="modal-action modal-close blue-text waves-effect waves-red btn-flat">Cancel</a>
-			</div>
-		</div-->
 	</div>
 	<div id="game">
 		<nav class="nav">
@@ -312,12 +242,11 @@
       		</ul>
       	</div>
 				<a href="#" class="brand-logo center">
-					<!--img id="logo" src="images/x.png" width="46" height="40" alt="x" /-->
 					<span id="countryName"></span>
 				</a>
 				<ul class="right">
 					<li><a href="#!"><i class="material-icons left">launch</i>Manual</a></li>
-					<li><a href="#!" id="chatBtn"><i class="material-icons right">chat</i>Chat</a></li>
+					<li><a href="#!" id="chatBtn" data-activates="chat"><i class="material-icons right">chat</i>Chat</a></li>
 				</ul>
 			</div>
 		</nav>
@@ -363,7 +292,7 @@
 			<div class="container">
 				<br>
 				<center><a id="historyGraphTitle" class="dropdown-button btn pink" data-activates="historyGraphSelector">Development</a></center>
-				<ul id='historyGraphSelector' class='dropdown-content indigo-text'> <!--indigo-text class does nothing here, hence the text classes below-->
+				<ul id='historyGraphSelector' class='dropdown-content indigo-text'>
 					<li><a class="indigo-text">Development</a></li>
 					<li><a class="indigo-text">Population</a></li>
 					<li><a class="indigo-text">Steel Production</a></li>
@@ -411,23 +340,47 @@
 			</div>
 		</div>
 		<div id="battle" class="col s12 tabcontent">
-
 		</div>
-		<!-- Sidenav always hides when blurred, implementing my own -->
-		<!--ul id="side-chat" class="side-nav">
-			<li>
-				<div class="row valign-wrapper">
-					<div class="col s9">
-						<h4>Chat</h4>
-					</div>
-					<div class="col s3 valign-wrapper right-align"><a href="#" id="closeChat" class="btn-flat circle waves-effect waves-light gray-text right"><i class="material-icons">arrow_forward</i></a></div>
+		<div id="chat" class="side-nav">
+			<nav class="nav">
+				<div class="nav-wrapper indigo">
+					<a href="#" class="brand-logo">
+						&nbsp; Chat
+					</a>
+					<a href="#" id="closeChat" class="valign-wrapper btn-flat white-text right"><i class="material-icons">close</i></a>
 				</div>
-			</li>
-			<li><div class="divider"></div></li>
-		</ul-->
-		<div id="chatbox">
-			<div class="row">
-				<div class=""></div>
+			</nav>
+			<div id="msg">
+				<div class="row valign-wrapper">
+					<div class="col icon">
+						<div class="circle purple white-text">INE</div>
+					</div>
+					<div class="col">
+					Lorem ipsum dolor so much text that it has to wrap to the second or even the third line and now things aren't aligned nicely together anymore :(
+					</div>
+				</div>
+				<div class="row valign-wrapper">
+					<div class="col icon">
+						<div class="circle pink white-text">RWS</div>
+					</div>
+					<div class="col">
+					Single line text
+					</div>
+				</div>
+				<div class="row valign-wrapper">
+					<div class="col right-align">
+					I said this
+					</div>
+					<div class="col icon">
+						<div class="circle indigo white-text right">CUI</div>
+					</div>
+				</div>
+			</div>
+			<div id="typingArea" class="row">
+				<div class="divider"></div>
+				<div class="col s12">
+					<input id="chatInput" style="border: none !important; box-shadow: none !important;" placeholder="Your message" type="text" maxlength="256" />
+				</div>
 			</div>
 		</div>
 		<div id="countryModal" class="modal">
@@ -452,7 +405,7 @@
 	</div>
 	<script type="text/javascript">
 	$(document).ready(function(){
-		const countryRegex = /^[a-z]+( ?[a-z]+)+ ?[a-z]$/i;
+		const countryRegex = /^[a-z]+( ?[a-z']+)+ ?[a-z]$/i;
 		$('#countryInput').on('change input',function(){
 			let val = $(this).val();
 			if(val.length > 3 && val.length < 33 && countryRegex.test(val)) $('#submitName').removeClass('disabled');
@@ -471,14 +424,17 @@
 			$('#action,#navigator').fadeIn(400);
 			draw();
 		});
-		//$('#chatBtn').sideNav({menuWidth: 360, edge: 'right', closeOnClick: false});
-		$('#closeChat').on('click',function(){
-			$('#side-chat').removeClass('fixed').sideNav('hide');
-			//$('#chatBtn').sideNav({edge: 'right', closeOnClick: false}).sideNav('hide');
-		});
 		$('#chatBtn').on('click',function(){
-			$('#side-chat').sideNav('show').addClass('fixed');
-			//$('#chatBtn').sideNav({edge: 'right', closeOnClick: false});
+			$('#action').addClass('shifted');
+		}).sideNav({
+			menuWidth: 400,
+			edge: 'right',
+			closeOnClick: false,
+			draggable: false
+		});
+		$('#closeChat').on('click',function(){
+			$('#action').removeClass('shifted');
+			$('#chatBtn').sideNav('hide');
 		});
 		$('#generateName').on('click',function(){
 			$('#countryInput').val(word(2,1).capitalize());
@@ -503,41 +459,6 @@
 		drawGraph(historyGraph.getContext('2d'), testDataSet, "line", true);
 		drawGraph(statsGraph.getContext('2d'), testDataSet, "pie", true);
 	});
-	//var t = c.getContext('2d');
-	/* // Code for room joining/creating
-	function onWebSocketConnect(){
-		$('#load').fadeOut();
-		$('#games').slideToggle();
-	}
-	$(document).ready(function(){
-		$('select').material_select();
-		$('#load').on('click',onWebSocketConnect);
-		$('#createbtn').on('click',function(){
-			$('#create').openModal();
-		});
-		$('#private').on('click',function(){
-			var c = $('#private').is(':checked')
-			$('#password').prop('disabled', !c);
-			if (!c) {
-				$('#password').removeClass('valid').removeClass('invalid');
-			} else {
-				if($('#password').val() == '') $('#password').removeClass('valid').addClass('invalid');
-				else $('#password').removeClass('invalid').addClass('valid');
-			}
-		});
-		$('#privateGame').on('click',function(){
-
-		});
-		$('#name').on('blur keyup',function(){
-			if($('#name').val().trim() == '') $('#name').addClass('invalid');
-			else $('#name').removeClass('invalid').addClass('valid');
-		});
-		$('#password').on('blur keyup',function(){
-			if($('#password').val() == '' && $('#private').is(':checked')) $('#password').addClass('invalid');
-			else $('#password').removeClass('invalid').addClass('valid');
-		});
-	});
-	//*/
 	let width = window.innerWidth, height = window.innerHeight - 64 /*height of top tab*/, keys = new Array(100).fill(0), timer,  mapSize = 25, moved = true;
 	c.width = width;
 	c.height = height;
@@ -553,9 +474,8 @@
 	hgraph.fillStyle = "red";
 	hgraph.fillText("NO DATA", historyGraph.width / 2, historyGraph.height / 2);
 	t.strokeStyle = "#000";
-	t.lineWidth = 1;
+	t.lineCap = "square";
 	t.translate(width / 2, height / 2);
-	// t.scale(2, 2);
 	class Hex {
 		constructor(x, y, type){
 			this.type = type;
@@ -587,51 +507,24 @@
 		}
 		draw(color){
 			let x = (this.x + this.y) * r * 1.5, y = (this.y - this.x) * r * .866,
-			Hshift = mapSize * r * 1.5, Vshift = mapSize * r * .866;
-			/* pt = t.originalPoint(x, y), HP = r * t.getTransform().a, VP = HP * .866,
-			// zoom, horizontal/vertical padding
-			/* // solution #1: try to move the hexagons outside of viewport back in
-			if(pt.x + HP < 0 || pt.x - HP > width || pt.y + VP < 0 || pt.y - VP > height){
-				if(pt.x + HP < 0) {
-					x += Hshift;
-					var x2 = x + Hshift, y2 = y;
-					if(pt.y < height / 2)
-						y += Vshift;
-					else
-						y -= Vshift;
-				} else if(pt.x - HP > width) {
-					x -= Hshift;
-					var x2 = x - Hshift, y2 = y;
-					if(pt.y < height / 2)
-						y += Vshift;
-					else
-						y -= Vshift;
-				} else {
-					if(pt.y + VP < 0) {
-						y += Vshift;
-						var y2 = y + Vshift, x2 = x;
-					} else if (pt.y - VP > height) {
-						y -= Vshift;
-						var y2 = y - Vshift, x2 = x;
-					} else return;
-					if(pt.x < width / 2)
-						x += Hshift;
-					else
-						x -= Hshift;
-				} // partial fix for wraparound map
+			Hshift = mapSize * r * 1.5, Vshift = mapSize * r * .866, borders = [];
+			if(this.owner) {
+				for(let i = 0, n = this.neighbors; i < 6; i++){
+					if(n[i].owner != this.owner) {
+						borders.push(i);
+					}
+				}
+				// borders.push(this.owner.color); // BUG: this.owner.color doesn't actually give the material design colors.
+				borders.push(this.owner.hexColor); // quick fix
 			}
-			color = color || this.color;
-			Hex.render(x, y, color);
-			if(x2 !== undefined) Hex.render(x2, y2, color); // sorry but this still looks kind of ugly
-			*/
 			// solution #2: just paint 4 copies of the original map... (INEFFICIENCY UGHH)
 			color = color || this.color;
-			Hex.render(x, y, color);
-			Hex.render(x - Hshift * 2, y, color);
-			Hex.render(x - Hshift, y - Vshift, color);
-			Hex.render(x - Hshift, y + Vshift, color);
+			Hex.render(x, y, color, borders);
+			Hex.render(x - Hshift * 2, y, color, borders);
+			Hex.render(x - Hshift, y - Vshift, color, borders);
+			Hex.render(x - Hshift, y + Vshift, color, borders);
 		}
-		static render(x, y, color) {
+		static render(x, y, color, borders) {
 			let pt = t.originalPoint(x, y), HP = r * t.getTransform().a, VP = HP * .866;
 			if(pt.x + HP < 0 || pt.x - HP > width || pt.y + VP < 0 || pt.y - VP > height) return;
 			t.beginPath();
@@ -643,11 +536,22 @@
 			t.lineTo(x + r / 2, y - r * .866);
 			t.closePath();
 			if(color == "outline") {
+				t.lineWidth = 1;
 				t.strokeStyle = "#ffffff";
 				t.stroke();
 			} else {
 				t.fillStyle = color;
 				t.fill();
+			}
+			let borderColor = borders.pop();
+			if(!borderColor) return;
+			for(let i = 0; i < borders.length; i++){
+				let ang = borders[i];
+				t.beginPath();
+				t.moveTo(x + Math.cos(Math.PI / 3 * ang) * r * 0.96, y - Math.sin(Math.PI / 3 * ang) * r * 0.96);
+				t.lineTo(x + Math.cos(Math.PI / 3 * (ang + 1)) * r * 0.96, y - Math.sin(Math.PI / 3 * (ang + 1)) * r * 0.96);
+				t.strokeStyle = borderColor;
+				t.stroke();
 			}
 		}
 		static round(x, y){
@@ -707,6 +611,7 @@
 	class Player {
 		constructor(country){
 			this.name = country;
+			this.abbr = getAbbr(country);
 			this.capital = { x: -1, y: -1 };
 			this.development = 0;
 			this.oil = 0;
@@ -717,11 +622,14 @@
 			this.seaUnits = 0;
 			this.airUnits = 0;
 			this.tileList = [];
+			this.color = 'indigo'; // TEMPORARY, players should get color code from server.
+			this.hexColor = '#3f51b5'; // used by Hex.draw, (borders/units/buildings etc.)
 		}
 		get numberOfUnits() {
 			return this.landUnits + this.seaUnits + this.airUnits;
 		}
-		chat(msg) {
+		chat(text) {
+			msg.innerHTML += `<div class="row valign-wrapper"><div class="col right-align">${text}</div><div class="col icon"><div class="circle ${this.color} white-text right">${this.abbr}</div></div></div>`;
 			// webSocket majikz
 		}
 		addUnit(x, y, units){
@@ -741,6 +649,12 @@
 				}
 			}
 		}
+	}
+	function getAbbr(str){
+		let arr = str.split(' ').filter(e => e.toLowerCase() != 'of'), l = arr.length;
+		if(l == 1) return arr[0].slice(0, 3).toUpperCase();
+		if(l == 2) return (arr[0].slice(0, 2) + arr[1].slice(0, 1)).toUpperCase();
+		return (arr[0].slice(0, 1) + arr[1].slice(0, 1) + arr[2].slice(0, 1)).toUpperCase();
 	}
 	class Unit {
 		constructor(typeName, ownerName) {
@@ -916,11 +830,13 @@
 	c.addEventListener('click',function(evt){
 		if(mouse.dragged) return;
 		if(Player.god == true){
-			let pt = t.transformedPoint(mouse.x,mouse.y),
-			hex = Hex.round(pt.x, pt.y);
+			let pt = t.transformedPoint(mouse.x,mouse.y);
+			Hex.round(pt.x, pt.y).owner = players[0];
+			/*
 			hex.type++;
 			if(hex.type > 3) hex.type = 0;
 			hex.color = colors[hex.type];
+			*/
 			moved = true;
 		}
 	},false);
@@ -928,7 +844,14 @@
 		evt.preventDefault();
 		return false;
 	},false);
+	chatInput.addEventListener('keydown',function(evt){
+		if(evt.keyCode == 13 && !evt.shiftKey){
+			players[0].chat(chatInput.value);
+			chatInput.value = '';
+		}
+	})
 	document.addEventListener('keydown',function(evt){
+		if($(':focus').length) return;
 		switch(evt.keyCode){
 			case 49: mapButton.click(); break;
 			case 50: historyButton.click(); break;
@@ -961,8 +884,7 @@
 		zoom(Math.min(Math.max(evt.deltaY / 100, -8), 8));
 		return evt.preventDefault() && false;
 	});
-	let interval = 20, now, then = Date.now(), delta;
-	// FPS controller and input check for optimizations
+	let interval = 20, now, then = Date.now(), delta; // FPS controller and input check for optimizations
 	function draw(){
 		timer = requestAnimationFrame(draw);
 		now = Date.now();
@@ -1032,7 +954,6 @@
 				}
 				map[x][y].sum = sum / prng.m; //debug only - comment out if desired
 				map[x][y].color = colors[map[x][y].type];
-				// render immediately
 				moved = true;
 			}
 		}
@@ -1049,7 +970,6 @@
 	function importMap(str,size){
 		if(size) mapSize = size;
 		let arr = (str || prompt("Enter a map string:")).split(',');
-		// if(arr.length < mapSize) return console.log("Something is wrong with this map string");
 		for(let x = 0; x < mapSize; x++){
 			arr[x] = parseInt(arr[x] || 0, 36);
 			for(let y = 0; y < mapSize; y++)
@@ -1059,14 +979,11 @@
 		moved = true;
 	}
 	// importMap("vkisfod,ewpm2oal,if376btp,ewofggbd,begwwf9x,1hd780k,ieydxy4w,3q64aakw,ihf6a9es,lxcvjbr4,4dulwetd,282dc,in0fdzkl,noi2nuop,imw4jxgl,ipbr4fv9,4ecbzur5,ikvkwfa7,15ft74cpp,zdbmp3qh,12ga122vp", 21);
-	importMap("vkisfod,ewoi4arh,2saawou9nh,3h4rgajdll,3h198khnit,1ha2ul0,ieydxy4w,3q64aakw,ihf6a9es,2sdt1xdrgg,2rw9o3kcn5,1k4k5dr7k,in0fdzi8,nodmuckc,2rwhlpdtlx,23cm6vde8l,4ecbzur5,8b71tlcv3,7dxjsh3kt,2vvi0f1ezt,2uegka0kyd,3haarsuy4g,50v5zzxeps,3uqyoqbjcw,2zkhzr5es0", mapSize); /* // map stats:
-	sea tiles: 327 (52.32%)
-	plains tiles: 233 (37.28%)
-	desert tiles: 32 (5.12%)
-	mountain tiles: 33 (5.28%)
-	*/
+	importMap("vkisfod,ewoi4arh,2saawou9nh,3h4rgajdll,3h198khnit,1ha2ul0,ieydxy4w,3q64aakw,ihf6a9es,2sdt1xdrgg,2rw9o3kcn5,1k4k5dr7k,in0fdzi8,nodmuckc,2rwhlpdtlx,23cm6vde8l,4ecbzur5,8b71tlcv3,7dxjsh3kt,2vvi0f1ezt,2uegka0kyd,3haarsuy4g,50v5zzxeps,3uqyoqbjcw,2zkhzr5es0", mapSize);
+	/* // map stats:
+	sea tiles: 327 (52.32%)  |  plains tiles: 233 (37.28%)  |  desert tiles: 32 (5.12%)  |  mountain tiles: 33 (5.28%) */
 	// importMap("annext,is0the0,best0game,ever0made,everyone0,should0,play0it0,because0,you0get0,to0rule0,the0whole,world0000",12);
-	// Player.god = true; // edit map with this
+	Player.god = true; // edit map with this
 	</script>
 </body>
 </html>
