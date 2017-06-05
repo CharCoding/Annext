@@ -224,6 +224,10 @@
 		<img id="iconTransport" src="images/iconTransport.png"></img>
 		<img id="iconBomber" src="images/iconBomber.png"></img>
 		<img id="iconFighter" src="images/iconFighter.png"></img>
+		<img id="iconMine" src="images/iconMine.png"></img>
+		<img id="iconOilRig" src="images/iconOilRig.png"></img>
+		<img id="iconUraniumMine" src="images/iconUraniumMine.png"></img>
+		<img id="iconUraniumRefinery" src="images/iconUraniumRefinery.png"></img>
 	</div>
 	<div id="home">
 		<h1 class="display">Anne<img id="x" src="./images/x.png" width="69" height="60" alt="x" />t</h1>
@@ -506,6 +510,7 @@
 			this.x = x;
 			this.y = y;
 			this.owner = null;
+			this.ownerColor = "#00f";
 			this.cities = 0;
 			this.mines = 0;
 			this.oilRigs = 0;
@@ -532,21 +537,6 @@
 			let dx = Math.sqrt(3) * (x + y / 2) * r / n / 1.5, //no idea where the 1.5 comes from, but it works
     	dy = 3/2 * y * r / n / 1.5;
 			return [dx + (this.x + this.y) * r * 1.5, dy + (this.y - this.x) * r * .866];
-		}
-		fillInteriorPoint(x, y, n) { //DELETE THIS
-			n == 3 || n;
-			let dx = Math.sqrt(3) * (x + y / 2) * r / n,
-    	dy = 3/2 * y * r / n,
-			fx = dx + (this.x + this.y) * r * 1.5, fy = dy + (this.y - this.x) * r * .866;
-			t.fillStyle = "black";
-			t.fillRect(fx, fy, 1, 1);
-		}
-		fillInteriorPoints(n) {
-			for (let i = -2; i <= 2; i++) {
-				for (let j = -2; j <= 2; j++) {
-					this.fillInteriorPoint(i,j,n);
-				}
-			}
 		}
 		draw(color, r){
 			r = r || 16;
@@ -586,6 +576,26 @@
 					var coords = this.interiorPoint(unitObject.hexDisp[0], unitObject.hexDisp[1], 3);
 					unitObject.render(coords[0], coords[1], t.getTransform().a, num);
 				}
+			}
+		}
+		drawBuildings() {
+			var [x, y] = hexCoordToPoint(this.x, this.y);
+			if (this.cities > 0) {
+				t.fillStyle = this.ownerColor;
+				t.strokeStyle = "black";
+				t.beginPath();
+				t.arc(x, y, r / 4.5, 0, Math.PI * 2);
+				t.stroke();
+				t.fill();
+				t.fillStyle = "white";
+				t.font = "6px sans-serif";
+				t.fillText(this.cities, x - 1, y + 2);
+			}
+			if (this.mines > 0) {
+				t.drawImage(iconMine, this.interiorPoint(-1,1,3)[0], this.interiorPoint(-1,1,3)[1], iconSize, iconSize);
+			}
+			if (this.oilRigs > 0) {
+				t.drawImage(iconOilRig, this.interiorPoint(0,1,3)[0], this.interiorPoint(-1,1,3)[1], iconSize, iconSize);
 			}
 		}
 		static render(x, y, color, borders) {
@@ -1006,8 +1016,10 @@
 				map[x][y].draw();
 		}
 		for(let x = 0; x < mapSize; x++){ //looping second time so that hexes don't cover units
-			for(let y = 0; y < mapSize; y++)
+			for(let y = 0; y < mapSize; y++) {
 				map[x][y].drawUnits();
+				map[x][y].drawBuildings();
+			}
 		}
 		let pt = t.transformedPoint(mouse.x, mouse.y);
 		Hex.round(pt.x, pt.y).draw("outline");
@@ -1098,6 +1110,11 @@
 		new Unit("Submarine", "", "#f00"),
 		new Unit("Transport", "", "#f00"),
 		new Unit("Battleship", "", "#f00")]
+
+	//BUILD RENDER TESTING
+	map[0][1].cities = 3;
+	map[0][1].mines = 1;
+	map[0][1].oilRigs = 1;
 	</script>
 </body>
 </html>
