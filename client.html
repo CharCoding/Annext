@@ -190,9 +190,11 @@
 		}
 	})(window,document);
 	function trackTransforms(t){ // Credit goes to http://phrogz.net/tmp/canvas_zoom_to_cursor.html
-		let svg = document.createElementNS('http://www.w3.org/2000/svg','svg'), xform = svg.createSVGMatrix(),
+		let svg = document.createElementNS('http://www.w3.org/2000/svg','svg'),
+		xform = svg.createSVGMatrix(),
 		savedTransforms = [], save = t.save, restore = t.restore, scale = t.scale, rotate = t.rotate,
-		translate = t.translate, transform = t.transform, setTransform = t.setTransform, pt = svg.createSVGPoint();
+		translate = t.translate, transform = t.transform,
+		setTransform = t.setTransform, pt = svg.createSVGPoint();
 		t.getTransform = function(){ return xform; };
 		t.save = function(){ savedTransforms.push(xform.translate(0,0)); return save.call(t); };
 		t.restore = function(){ xform = savedTransforms.pop(); return restore.call(t); };
@@ -209,6 +211,20 @@
 	</script>
 </head>
 <body>
+	<div id="imageSources" style="display:none;">
+		<img id="iconInfantry" src="images/iconInfantry.png"></img>
+		<img id="iconTank" src="images/iconTank.png"></img>
+		<img id="iconArtillery" src="images/iconArtillery.png"></img>
+		<img id="iconMechanizedInfantry" src="images/iconMechanizedInfantry.png"></img>
+		<img id="iconDestroyer" src="images/iconDestroyer.png"></img>
+		<img id="iconCruiser" src="images/iconCruiser.png"></img>
+		<img id="iconAircraftCarrier" src="images/iconAircraftCarrier.png"></img>
+		<img id="iconBattleship" src="images/iconBattleship.png"></img>
+		<img id="iconSubmarine" src="images/iconSubmarine.png"></img>
+		<img id="iconTransport" src="images/iconTransport.png"></img>
+		<img id="iconBomber" src="images/iconBomber.png"></img>
+		<img id="iconFighter" src="images/iconFighter.png"></img>
+	</div>
 	<div id="home">
 		<h1 class="display">Anne<img id="x" src="./images/x.png" width="69" height="60" alt="x" />t</h1>
 		<h4 class="display">Next Level World Domination</h4>
@@ -459,7 +475,11 @@
 		drawGraph(historyGraph.getContext('2d'), testDataSet, "line", true);
 		drawGraph(statsGraph.getContext('2d'), testDataSet, "pie", true);
 	});
-	let width = window.innerWidth, height = window.innerHeight - 64 /*height of top tab*/, keys = new Array(100).fill(0), timer,  mapSize = 25, moved = true;
+	let width = window.innerWidth, height = window.innerHeight - 64 /*height of top tab*/, keys = new Array(100).fill(0), timer,  mapSize = 25, moved = true,
+	iconSize = 5,
+	unitTypeNames = ["Infantry", "MechanizedInfantry", "Tank", "Artillery",
+		"Destroyer", "Cruiser", "Battleship", "Submarine", "AircraftCarrier", "Transport",
+		"Fighter", "Bomber", "Helicopter"];
 	c.width = width;
 	c.height = height;
 	const scaleFactor = 1.04, t = c.getContext('2d'), hgraph = historyGraph.getContext('2d'),
@@ -476,6 +496,9 @@
 	t.strokeStyle = "#000";
 	t.lineCap = "square";
 	t.translate(width / 2, height / 2);
+	function hexCoordToPoint(x, y) {
+		return [(x + y) * r * 1.5, (y - x) * r * .866];
+	}
 	class Hex {
 		constructor(x, y, type){
 			this.type = type;
@@ -505,7 +528,28 @@
 				map[this.x][mod(this.y + 1, mapSize)],
 			];
 		}
-		draw(color){
+		interiorPoint(x, y, n) {
+			let dx = Math.sqrt(3) * (x + y / 2) * r / n / 1.5, //no idea where the 1.5 comes from, but it works
+    	dy = 3/2 * y * r / n / 1.5;
+			return [dx + (this.x + this.y) * r * 1.5, dy + (this.y - this.x) * r * .866];
+		}
+		fillInteriorPoint(x, y, n) { //DELETE THIS
+			n == 3 || n;
+			let dx = Math.sqrt(3) * (x + y / 2) * r / n,
+    	dy = 3/2 * y * r / n,
+			fx = dx + (this.x + this.y) * r * 1.5, fy = dy + (this.y - this.x) * r * .866;
+			t.fillStyle = "black";
+			t.fillRect(fx, fy, 1, 1);
+		}
+		fillInteriorPoints(n) {
+			for (let i = -2; i <= 2; i++) {
+				for (let j = -2; j <= 2; j++) {
+					this.fillInteriorPoint(i,j,n);
+				}
+			}
+		}
+		draw(color, r){
+			r = r || 16;
 			let x = (this.x + this.y) * r * 1.5, y = (this.y - this.x) * r * .866,
 			Hshift = mapSize * r * 1.5, Vshift = mapSize * r * .866, borders = [];
 			if(this.owner) {
@@ -523,6 +567,26 @@
 			Hex.render(x - Hshift * 2, y, color, borders);
 			Hex.render(x - Hshift, y - Vshift, color, borders);
 			Hex.render(x - Hshift, y + Vshift, color, borders);
+		}
+		unitNumberFromType(typeName) {
+			let sum = 0;
+			for (let i = 0; i < this.units.length; i++) {
+				if (this.units[i].typeName == typeName) ++sum;
+			}
+			return sum;
+		}
+		drawUnits() {
+			for (let i = 0; i < unitTypeNames.length; i++) {
+				let num = this.unitNumberFromType(unitTypeNames[i]);
+				if (num !== 0) {
+					let unitObject;
+					for (let j = 0; j < this.units.length; j++) {
+						if (this.units[j].typeName == unitTypeNames[i]) unitObject = this.units[j];
+					}
+					var coords = this.interiorPoint(unitObject.hexDisp[0], unitObject.hexDisp[1], 3);
+					unitObject.render(coords[0], coords[1], t.getTransform().a, num);
+				}
+			}
 		}
 		static render(x, y, color, borders) {
 			let pt = t.originalPoint(x, y), HP = r * t.getTransform().a, VP = HP * .866;
@@ -632,8 +696,10 @@
 			msg.innerHTML += `<div class="row valign-wrapper"><div class="col right-align">${text}</div><div class="col icon"><div class="circle ${this.color} white-text right">${this.abbr}</div></div></div>`;
 			// webSocket majikz
 		}
-		addUnit(x, y, units){
+		addUnit(x, y, unit){
 			let hex = map[x][y];
+			hex.units.push(unit);
+			drawUnit(unit.t)
 			// more webSocket majikz and map majikz
 		}
 		build(x, y, building){
@@ -657,64 +723,73 @@
 		return (arr[0].slice(0, 1) + arr[1].slice(0, 1) + arr[2].slice(0, 1)).toUpperCase();
 	}
 	class Unit {
-		constructor(typeName, ownerName) {
+		constructor(typeName, ownerName, color) {
 			this.ownerName = ownerName;
+			this.color = color;
 			this.typeName = typeName;
 			this.passengers = [];
 			this.carryPlanes = 0; //defaults (most common);
 			this.carryWeight = 0;
 			this.isPlane = false;
+			this.icon = document.getElementById("icon" + this.typeName);
 			switch (typeName) {
-				case "infantry":
+				case "Infantry":
 					this.move = 2;
 					this.cost = [2, 0, 0];
 					this.weight = 1;
 					this.canMove = [false, true]; //[0] -> sea, [1] -> land
-					this.isBase = [false, true]; //can unit stop and stay there
+					this.isBase = [false, true]; //can unit stop and stay there without dying
+					this.hexDisp = [-1, -1]; //where in a tile the unit is displayed (see the intrahex position helper in the images folder)
 					break;
-				case "mechanized infantry":
+				case "MechanizedInfantry":
 					this.move = 2;
 					this.cost = [2, 1, 0];
 					this.weight = 2;
 					this.canMove = [false, true];
 					this.isBase = [false, true];
+					this.hexDisp = [2, -1];
 					break;
-				case "artillery":
+				case "Artillery":
 					this.move = 2;
 					this.cost = [3, 1, 0];
 					this.weight = 2;
 					this.canMove = [false, true];
 					this.isBase = [false, true];
+					this.hexDisp = [-2, 1];
 					break;
-				case "tank":
+				case "Tank":
 					this.move = 2;
 					this.cost = [2, 1, 1];
 					this.weight = 2;
 					this.canMove = [false, true];
 					this.isBase = [false, true];
+					this.hexDisp = [1, 1];
 					break;
-				case "destroyer":
+				case "Destroyer":
 					this.move = 3;
 					this.cost = [2, 0, 2];
 					this.weight = 40; //some number larger than what anything can carry
 					this.canMove = [true, false];
 					this.isBase = [true, false];
+					this.hexDisp = [0, 1];
 					break;
-				case "cruiser":
+				case "Cruiser":
 					this.move = 3;
 					this.cost = [2, 2, 0];
 					this.weight = 40;
 					this.canMove = [true, false];
 					this.isBase = [true, false];
+					this.hexDisp = [1, 0];
 					break;
-				case "battleship":
+				case "Battleship":
 					this.move = 3;
 					this.cost = [2, 2, 2];
 					this.weight = 40;
 					this.canMove = [true, false];
 					this.isBase = [true, false];
+					this.hexDisp = [-1, 0];
 					break;
-				case "aircraft carrier":
+				case "AircraftCarrier":
 					this.move = 3;
 					this.cost = [3, 1, 3];
 					this.weight = 80;
@@ -722,23 +797,26 @@
 					this.carryPlanes = 4;
 					this.canMove = [true, false];
 					this.isBase = [true, false];
+					this.hexDisp = [0, 0];
 					break;
-				case "submarine":
+				case "Submarine":
 					this.move = 3;
 					this.cost = [2, 2, 0];
 					this.weight = 40;
 					this.canMove = [true, false];
 					this.isBase = [true, false];
+					this.hexDisp = [-1, 2];
 					break;
-				case "transport":
+				case "Transport":
 					this.move = 3;
 					this.cost = [1, 4, 0];
 					this.weight = 40;
 					this.carryWeight = 12;
 					this.canMove = [true, false];
 					this.isBase = [true, false];
+					this.hexDisp = [0, 2];
 					break;
-				case "fighter":
+				case "Fighter":
 					this.move = 12; //flying back also counts, so when operating from a single base range = 6
 					this.cost = [4, 0, 3];
 					this.weight = 999;
@@ -746,8 +824,9 @@
 					this.canMove = [true, true];
 					this.isBase = [false, false];
 					this.isPlane = true;
+					this.hexDisp = [0, -2];
 					break;
-				case "bomber":
+				case "Bomber":
 					this.move = 12;
 					this.cost = [4, 3, 0];
 					this.weight = 999;
@@ -755,13 +834,15 @@
 					this.canMove = [true, true];
 					this.isBase = [false, false];
 					this.isPlane = true;
+					this.hexDisp = [2, -2];
 					break;
-				case "helicopter":
+				case "Helicopter":
 					this.move = 3;
 					this.cost = [3, 1, 1];
 					this.weight = 2;
 					this.canMove = [true, true];
 					this.isBase = [false, true];
+					this.hexDisp = [1, -2];
 					break;
 			}
 		}
@@ -790,6 +871,24 @@
 		}
 		die() {
 
+		}
+		render(x, y, zoom, number) {
+			let size = iconSize;
+			t.fillStyle = this.color;
+			if (this.canMove[0]) {
+				t.strokeStyle = "black";
+				t.lineWidth = 0;
+				t.beginPath();
+				t.arc(x, y, size / 2, 0, Math.PI * 2);
+				t.stroke();
+				t.fill();
+			} else {
+				t.fillRect(x - size / 2, y - size / 2, size, size);
+			}
+			t.drawImage(this.icon, x - size / 2, y - size / 2, size, size);
+			t.fillStyle = "#fff";
+			t.font = "3px sans-serif";
+			t.fillText(number, x + size / 6, y - size / 6);
 		}
 	}
 	for(let x = 0; x < mapSize; x++){
@@ -906,6 +1005,10 @@
 			for(let y = 0; y < mapSize; y++)
 				map[x][y].draw();
 		}
+		for(let x = 0; x < mapSize; x++){ //looping second time so that hexes don't cover units
+			for(let y = 0; y < mapSize; y++)
+				map[x][y].drawUnits();
+		}
 		let pt = t.transformedPoint(mouse.x, mouse.y);
 		Hex.round(pt.x, pt.y).draw("outline");
 		pt = t.transformedPoint(width / 2, height / 2);
@@ -984,6 +1087,17 @@
 	sea tiles: 327 (52.32%)  |  plains tiles: 233 (37.28%)  |  desert tiles: 32 (5.12%)  |  mountain tiles: 33 (5.28%) */
 	// importMap("annext,is0the0,best0game,ever0made,everyone0,should0,play0it0,because0,you0get0,to0rule0,the0whole,world0000",12);
 	Player.god = true; // edit map with this
+
+	//UNIT RENDER TESTING
+	map[0][1].units = [new Unit("Infantry", "", "#00f"), new Unit("Tank", "", "#00f"),
+	 new Unit("Artillery", "", "#00f"), new Unit("MechanizedInfantry", "", "#00f"),
+	 new Unit("Artillery", "", "#00f"), new Unit("MechanizedInfantry", "", "#00f"),];
+	map[5][0].units = [new Unit("AircraftCarrier", "", "#f00"),
+		new Unit("Destroyer", "", "#f00"), new Unit("Destroyer", "", "#f00"),
+		new Unit("Cruiser", "", "#f00"), new Unit("Cruiser", "", "#f00"), new Unit("Cruiser", "", "#f00"),
+		new Unit("Submarine", "", "#f00"),
+		new Unit("Transport", "", "#f00"),
+		new Unit("Battleship", "", "#f00")]
 	</script>
 </body>
 </html>
