@@ -125,9 +125,9 @@
 	#historyGraphTitle, #statsTitle { width: 216px; }
 	#sidenav-overlay { display: none !important; }
 	#msg {
-		position: fixed;
+		position: absolute;
 		top: 64px;
-		bottom: 48px;
+		bottom: 108px;
 		width: 100%;
 		overflow-y: auto;
 	}
@@ -145,7 +145,7 @@
 	#typingArea {
 		width: 100%;
 		height: 48px;
-		position: fixed;
+		position: absolute;
 		bottom: 48px;
 	}
 	</style>
@@ -500,6 +500,7 @@
 	hgraph.fillText("NO DATA", historyGraph.width / 2, historyGraph.height / 2);
 	t.strokeStyle = "#000";
 	t.lineCap = "square";
+	t.lineWidth = 2;
 	t.translate(width / 2, height / 2);
 	function hexCoordToPoint(x, y) {
 		return [(x + y) * r * 1.5, (y - x) * r * .866];
@@ -619,6 +620,7 @@
 				t.lineWidth = 1;
 				t.strokeStyle = "#ffffff";
 				t.stroke();
+				t.lineWidth = 2;
 			} else {
 				t.fillStyle = color;
 				t.fill();
@@ -628,9 +630,10 @@
 			for(let i = 0; i < borders.length; i++){
 				let ang = borders[i];
 				t.beginPath();
-				t.moveTo(x + Math.cos(Math.PI / 3 * ang) * r * 0.96, y - Math.sin(Math.PI / 3 * ang) * r * 0.96);
-				t.lineTo(x + Math.cos(Math.PI / 3 * (ang + 1)) * r * 0.96, y - Math.sin(Math.PI / 3 * (ang + 1)) * r * 0.96);
+				t.moveTo(x + Math.cos(Math.PI / 3 * ang) * r * 0.95, y - Math.sin(Math.PI / 3 * ang) * r * 0.95);
+				t.lineTo(x + Math.cos(Math.PI / 3 * (ang + 1)) * r * 0.95, y - Math.sin(Math.PI / 3 * (ang + 1)) * r * 0.95);
 				t.strokeStyle = borderColor;
+				
 				t.stroke();
 			}
 		}
@@ -731,7 +734,8 @@
 			return this.landUnits + this.seaUnits + this.airUnits;
 		}
 		chat(text) {
-			msg.innerHTML += `<div class="row valign-wrapper"><div class="col right-align">${text}</div><div class="col icon"><div class="circle ${this.color} white-text right">${this.abbr}</div></div></div>`;
+			msg.innerHTML += `<div class="row valign-wrapper"><div class="col right-align">${HTMLescape(text)}</div><div class="col icon"><div class="circle ${this.color} white-text right">${this.abbr}</div></div></div>`;
+			msg.scrollTop = msg.scrollHeight;
 			// webSocket majikz
 		}
 		addUnit(x, y, unit){
@@ -759,6 +763,13 @@
 		if(l == 1) return arr[0].slice(0, 3).toUpperCase();
 		if(l == 2) return (arr[0].slice(0, 2) + arr[1].slice(0, 1)).toUpperCase();
 		return (arr[0].slice(0, 1) + arr[1].slice(0, 1) + arr[2].slice(0, 1)).toUpperCase();
+	}
+	function HTMLescape(str){
+		return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt')
+		.replace(/\*(.+)\*/g, '<b>$1</b>') // Skype formatting syntax
+		.replace(/_(.+)_/g, '<i>$1</i>')
+		.replace(/~(.+)~/g, '<s>$1</s>')
+		.replace(/{code}(.+){code}/g, '<code>$1</code>');
 	}
 	class Unit {
 		constructor(typeName, ownerName, color) {
@@ -985,8 +996,27 @@
 		return false;
 	},false);
 	chatInput.addEventListener('keydown',function(evt){
-		if(evt.keyCode == 13 && !evt.shiftKey){
-			players[0].chat(chatInput.value);
+		let text = this.value;
+		if(evt.keyCode == 13){
+			if(evt.shiftKey && text.length == 0) // to clear chat, press shift + enter
+				msg.innerHTML = '';
+			else if (text.trim().length > 0) {
+				text = text.trim().replace(/\s{2,}/g, ' ');
+				if(text[0] == '>') {
+					// news
+				} else if (text[0] == '@') {
+					// private message
+				} else if (text[0] == '!') {
+					// exclusive message
+				} else if (text[0] == '~') {
+					// draw request
+				} else if (text == '/ai on') {
+					// AI is on
+				} else if (text == '/ai off') {
+					// I'm sorry, but I can't let you do that
+				}
+				players[0].chat(text);
+			}
 			chatInput.value = '';
 		}
 	})
