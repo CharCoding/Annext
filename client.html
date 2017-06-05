@@ -479,7 +479,8 @@
 		drawGraph(historyGraph.getContext('2d'), testDataSet, "line", true);
 		drawGraph(statsGraph.getContext('2d'), testDataSet, "pie", true);
 	});
-	let width = window.innerWidth, height = window.innerHeight - 64 /*height of top tab*/, keys = new Array(100).fill(0), timer,  mapSize = 25, moved = true,
+	let width = window.innerWidth, height = window.innerHeight - 64, //height of top tab
+	keys = new Array(100).fill(0), timer,  mapSize = 25, moved = true,
 	iconSize = 5,
 	unitTypeNames = ["Infantry", "MechanizedInfantry", "Tank", "Artillery",
 		"Destroyer", "Cruiser", "Battleship", "Submarine", "AircraftCarrier", "Transport",
@@ -503,6 +504,9 @@
 	function hexCoordToPoint(x, y) {
 		return [(x + y) * r * 1.5, (y - x) * r * .866];
 	}
+	function pixelToHex(x, y) {
+		return [(x - 1.732 * y) / r / 3, (x + 1.732 * y) / r / 3];
+	}
 	class Hex {
 		constructor(x, y, type){
 			this.type = type;
@@ -521,6 +525,10 @@
 			this.steel = Infinity;
 			this.oil = Infinity;
 			this.uranium = Math.round(Math.random() * 25); //placeholder (based on manual), change at some point
+			this.hexDisp = {
+				mines : [-1, 1],
+				oilRigs : [0,1]
+			}
 			return map[x][y] = this;
 		}
 		get neighbors(){
@@ -532,11 +540,6 @@
 				map[mod(this.x - 1, mapSize)][mod(this.y + 1, mapSize)],
 				map[this.x][mod(this.y + 1, mapSize)],
 			];
-		}
-		interiorPoint(x, y, n) {
-			let dx = Math.sqrt(3) * (x + y / 2) * r / n / 1.5, //no idea where the 1.5 comes from, but it works
-    	dy = 3/2 * y * r / n / 1.5;
-			return [dx + (this.x + this.y) * r * 1.5, dy + (this.y - this.x) * r * .866];
 		}
 		draw(color, r){
 			r = r || 16;
@@ -579,7 +582,9 @@
 			}
 		}
 		drawBuildings() {
-			var [x, y] = hexCoordToPoint(this.x, this.y);
+			var [x, y] = hexCoordToPoint(this.x, this.y),
+			buildings = ["mines", "oilRigs"],
+			icons = ["iconMine", "iconOilRig"];
 			if (this.cities > 0) {
 				t.fillStyle = this.ownerColor;
 				t.strokeStyle = "black";
@@ -591,11 +596,12 @@
 				t.font = "6px sans-serif";
 				t.fillText(this.cities, x - 1, y + 2);
 			}
-			if (this.mines > 0) {
-				t.drawImage(iconMine, this.interiorPoint(-1,1,3)[0], this.interiorPoint(-1,1,3)[1], iconSize, iconSize);
-			}
-			if (this.oilRigs > 0) {
-				t.drawImage(iconOilRig, this.interiorPoint(0,1,3)[0], this.interiorPoint(-1,1,3)[1], iconSize, iconSize);
+			for (let i = 0; i < buildings.length; i++) {
+				if (this[buildings[i]] > 0) {
+					var dp = this.interiorPoint(this.hexDisp[buildings[i]][0], this.hexDisp[buildings[i]][1], 3);
+					t.drawImage(document.getElementById(icons[i]), dp[0], dp[1], iconSize, iconSize);
+					//todo - add building number tracking (or can there be more than one per tile?)
+				}
 			}
 		}
 		static render(x, y, color, borders) {
@@ -680,6 +686,28 @@
 				}
 			}
 			return production;
+		}
+		click(x, y) {
+			var [tx, ty] = hexCoordToPoint(this.x, this.y);
+			x -= tx;
+			y -= ty; //x & y are now with respect to center of the hex
+			var hexCoords = Hex.round((x * sqrt(3)/3 - y / 3) / (r / n / 1.5), y * 2/3 / (r / n / 1.5));
+			for (let i = 0; i < this.units.length; i++) {
+				if (this.units[i].hexDisp[0] == hexCoords[0] && this.units[i].hexDisp[1] == hexCoords[1]) {
+					this.units[i].click();
+					return;
+				}
+			}
+			/*for (let i in this.hexDisp) {
+				if (hexCoords[0] == this.hexDisp[i][0] && hexCoords[1] == this.hexDisp[i][1] && this[i] > 0) {
+					//IN CASE BUILDINGS NEED TO DO SOMETHING ON CLICK ON UNCOMMENT ADD SOMETHING HERE
+				}
+			}*/
+		}
+		interiorPoint(x, y, n) {
+			let dx = Math.sqrt(3) * (x + y / 2) * r / n / 1.5, //no idea where the 1.5 comes from, but it works
+    	dy = 3/2 * y * r / n / 1.5;
+			return [dx + (this.x + this.y) * r * 1.5, dy + (this.y - this.x) * r * .866];
 		}
 	}
 	class Player {
@@ -781,7 +809,7 @@
 					this.weight = 40; //some number larger than what anything can carry
 					this.canMove = [true, false];
 					this.isBase = [true, false];
-					this.hexDisp = [0, 1];
+					this.hexDisp = [0, -1];
 					break;
 				case "Cruiser":
 					this.move = 3;
@@ -824,7 +852,7 @@
 					this.carryWeight = 12;
 					this.canMove = [true, false];
 					this.isBase = [true, false];
-					this.hexDisp = [0, 2];
+					this.hexDisp = [1, -1];
 					break;
 				case "Fighter":
 					this.move = 12; //flying back also counts, so when operating from a single base range = 6
@@ -880,6 +908,9 @@
 			return sum;
 		}
 		die() {
+
+		}
+		click() {
 
 		}
 		render(x, y, zoom, number) {
@@ -1098,7 +1129,7 @@
 	/* // map stats:
 	sea tiles: 327 (52.32%)  |  plains tiles: 233 (37.28%)  |  desert tiles: 32 (5.12%)  |  mountain tiles: 33 (5.28%) */
 	// importMap("annext,is0the0,best0game,ever0made,everyone0,should0,play0it0,because0,you0get0,to0rule0,the0whole,world0000",12);
-	Player.god = true; // edit map with this
+	Player.god = false; // edit map with this
 
 	//UNIT RENDER TESTING
 	map[0][1].units = [new Unit("Infantry", "", "#00f"), new Unit("Tank", "", "#00f"),
