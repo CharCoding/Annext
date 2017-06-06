@@ -508,6 +508,46 @@
 	function pixelToHex(x, y) {
 		return [(x - 1.732 * y) / r / 3, (x + 1.732 * y) / r / 3];
 	}
+	var selected = {
+		units : [],
+		tile : [-1, -1],
+		clear : function() {
+			for (let i = 0; i < this.units.length; i++) {
+				this.units[i].selected = false;
+			}
+			this.units = [];
+		},
+		unitsOfType : function(typeName) {
+			let sum = 0;
+			for (let i = 0; i < this.units.length; i++) {
+				if (this.units[i].typeName == typeName) ++sum;
+			}
+			return sum;
+		},
+		selectUnit : function(unit, hexx, hexy, selectAll) {
+			if (selected.tile.x == hexx && selected.tile.y == hexy) {
+				for (let i = 0; i < this.tile.units.length; i++) {
+					if (this.tile.units[i].typeName == unit.typeName && this.tile.units[i].selected == false) {
+						this.tile.units[i].selected = true;
+						this.units.push(this.tile.units[i]);
+					}
+				}
+			} else {//if unit is on different tile
+				this.clear();
+				this.tile = map[hexx][hexy];
+				unit.selected = true;
+				this.units.push(unit);
+			}
+			if (selectAll) { //shift-click adds all of a type
+				for (let i = 0; i < this.tile.units.length; i++) {
+					if (this.tile.units[i].typeName == unit.typeName && this.tile.units[i].selected == false) {
+						this.tile.units[i].selected = true;
+						this.units.push(tile.units[i]);
+					}
+				}
+			}
+		}
+	}
 	class Hex {
 		constructor(x, y, type){
 			this.type = type;
@@ -570,6 +610,13 @@
 			}
 			return sum;
 		}
+		getAllUnitsOfType(typeName) {
+			let r = [];
+			for (let i = 0; i < this.units.length; i++) {
+				if (this.units[i].typeName == typeName) r.push(this.units[i]);
+			}
+			return r;
+		}
 		drawUnits() {
 			for (let i = 0; i < unitTypeNames.length; i++) {
 				let num = this.unitNumberFromType(unitTypeNames[i]);
@@ -578,9 +625,12 @@
 					for (let j = 0; j < this.units.length; j++) {
 						if (this.units[j].typeName == unitTypeNames[i]) unitObject = this.units[j];
 					}
-					var coords = this.interiorPoint(unitObject.hexDisp[0], unitObject.hexDisp[1], 3);
+					var coords = this.interiorPoint(unitObject.hexDisp[0], unitObject.hexDisp[1], 3), numSelected = 0;
+					if (selected.tile.x == this.x && selected.tile.y == this.y) {
+						numSelected = selected.unitsOfType(unitTypeNames[i]);
+					}
 					for (let j = 0; j < this.renderWhere.length; j++) {
-						unitObject.render(coords[0] + this.renderWhere[j][0], coords[1] + this.renderWhere[j][1], t.getTransform().a, num);
+						unitObject.render(coords[0] + this.renderWhere[j][0], coords[1] + this.renderWhere[j][1], num, numSelected);
 					}
 				}
 			}
@@ -655,6 +705,22 @@
 				return map[mod(_x, mapSize)][mod(_y, mapSize)];
 			} else return {draw:function(){}}; // avoid errors lol
 		}
+		static round2(x, y) { //same as round but returns coordinates instead of returning map hex
+			var rx = Math.round(x),
+	    ry = Math.round(-x-y),
+	    rz = Math.round(y),
+			x_diff = Math.abs(rx - x),
+			y_diff = Math.abs(ry + x + y),
+			z_diff = Math.abs(rz - y);
+	    if (x_diff > y_diff && x_diff > z_diff) {
+				rx = -ry-rz
+			} else if (y_diff > z_diff) {
+	        ry = -rx-rz
+	    } else {
+				rz = -rx-ry
+			}
+			return [rx, rz];
+		}
 		killUnbasedUnits() {
 			for (let i = 0; i < this.units.length; i++) {
 				if (!this.units[i].isBase[Math.max(this.type, 1)]) {
@@ -695,20 +761,22 @@
 			}
 			return production;
 		}
-		click(x, y) {
-			var [tx, ty] = hexCoordToPoint(this.x, this.y);
+		click(x, y, selectAll) {
+			var [tx, ty] = hexCoordToPoint(this.x, this.y),
+			n = 3;
 			x -= tx;
-			y -= ty; //x & y are now with respect to center of the hex
-			var hexCoords = Hex.round((x * sqrt(3)/3 - y / 3) / (r / n / 1.5), y * 2/3 / (r / n / 1.5));
+			y -= ty;
+			var hexCoords = Hex.round2((x * Math.sqrt(3)/3 - y/3) / (r/n/1.5), y * 2/3 / (r/n/1.5));
 			for (let i = 0; i < this.units.length; i++) {
 				if (this.units[i].hexDisp[0] == hexCoords[0] && this.units[i].hexDisp[1] == hexCoords[1]) {
-					this.units[i].click();
+					this.units[i].click(this.x, this.y, selectAll);
 					return;
 				}
 			}
+			selected.clear();
 			/*for (let i in this.hexDisp) {
 				if (hexCoords[0] == this.hexDisp[i][0] && hexCoords[1] == this.hexDisp[i][1] && this[i] > 0) {
-					//IN CASE BUILDINGS NEED TO DO SOMETHING ON CLICK ON UNCOMMENT ADD SOMETHING HERE
+					//IN CASE BUILDINGS NEED TO DO SOMETHING ON CLICK, UNCOMMENT AND ADD SOMETHING HERE
 				}
 			}*/
 		}
@@ -786,6 +854,7 @@
 			this.carryWeight = 0;
 			this.isPlane = false;
 			this.icon = document.getElementById("icon" + this.typeName);
+			this.selected = false;
 			switch (typeName) {
 				case "Infantry":
 					this.move = 2;
@@ -926,25 +995,33 @@
 		die() {
 
 		}
-		click() {
-
+		click(hexx, hexy, selectAll) {
+			selected.selectUnit(this, hexx, hexy, selectAll);
 		}
-		render(x, y, zoom, number) {
+		render(x, y, number, numSelected) {
 			let size = iconSize;
 			t.fillStyle = this.color;
 			if (this.canMove[0]) {
+				t.lineWidth = 0.5;
 				t.strokeStyle = "transparent";
+				if (numSelected > 0) t.strokeStyle = this.color;
 				t.beginPath();
 				t.arc(x, y, size / 2, 0, Math.PI * 2);
 				t.stroke();
 				t.fill();
 			} else {
+				if (numSelected > 0) {
+					t.fillRect(x - size / 2 - 0.5, y - size / 2 - 0.5, size + 1, size + 1);
+				}
 				t.fillRect(x - size / 2, y - size / 2, size, size);
+
 			}
 			t.drawImage(this.icon, x - size / 2, y - size / 2, size, size);
 			t.fillStyle = "#fff";
 			t.font = "3px sans-serif";
-			t.fillText(number, x + size / 6, y - size / 6);
+			var text = number;
+			if (numSelected > 0) text = numSelected + "/" + number;
+			t.fillText(text, x + size / 6, y - size / 6);
 		}
 	}
 	for(let x = 0; x < mapSize; x++){
@@ -984,7 +1061,7 @@
 	},false);
 	c.addEventListener('click',function(evt){
 		if(mouse.dragged) return;
-		if(Player.god == true){
+		if (Player.god == true){
 			let pt = t.transformedPoint(mouse.x,mouse.y);
 			Hex.round(pt.x, pt.y).owner = players[0];
 			/*
@@ -993,6 +1070,11 @@
 			hex.color = colors[hex.type];
 			*/
 			moved = true;
+		} else {
+			var selectAll = false;
+			if (keys[16] > 0) selectAll = true;
+			let pt = t.transformedPoint(mouse.x, mouse.y);
+			Hex.round(pt.x, pt.y).click(pt.x, pt.y, selectAll);
 		}
 	},false);
 	c.addEventListener('contextmenu',function(evt){
