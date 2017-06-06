@@ -211,24 +211,7 @@
 	</script>
 </head>
 <body>
-	<div id="imageSources" style="display:none;">
-		<img id="iconInfantry" src="images/iconInfantry.png"></img>
-		<img id="iconTank" src="images/iconTank.png"></img>
-		<img id="iconArtillery" src="images/iconArtillery.png"></img>
-		<img id="iconMechanizedInfantry" src="images/iconMechanizedInfantry.png"></img>
-		<img id="iconDestroyer" src="images/iconDestroyer.png"></img>
-		<img id="iconCruiser" src="images/iconCruiser.png"></img>
-		<img id="iconAircraftCarrier" src="images/iconAircraftCarrier.png"></img>
-		<img id="iconBattleship" src="images/iconBattleship.png"></img>
-		<img id="iconSubmarine" src="images/iconSubmarine.png"></img>
-		<img id="iconTransport" src="images/iconTransport.png"></img>
-		<img id="iconBomber" src="images/iconBomber.png"></img>
-		<img id="iconFighter" src="images/iconFighter.png"></img>
-		<img id="iconMine" src="images/iconMine.png"></img>
-		<img id="iconOilRig" src="images/iconOilRig.png"></img>
-		<img id="iconUraniumMine" src="images/iconUraniumMine.png"></img>
-		<img id="iconUraniumRefinery" src="images/iconUraniumRefinery.png"></img>
-	</div>
+	<div id="imageSources" style="display:none;"></div>
 	<div id="home">
 		<h1 class="display">Anne<img id="x" src="./images/x.png" width="69" height="60" alt="x" />t</h1>
 		<h4 class="display">Next Level World Domination</h4>
@@ -265,6 +248,7 @@
 					<span id="countryName"></span>
 				</a>
 				<ul class="right">
+					<li><a href="#settingsModal" id="settingsBtn"><i class="material-icons left">settings</i>Settings</a></li>
 					<li><a href="#!"><i class="material-icons left">launch</i>Manual</a></li>
 					<li><a href="#!" id="chatBtn" data-activates="chat"><i class="material-icons right">chat</i>Chat</a></li>
 				</ul>
@@ -422,6 +406,29 @@
 				<a href="#!" id="submitName" class="disabled btn modal-action modal-close waves-effect waves-light indigo white-text">CONFIRM</a>
 			</div>
 		</div>
+		<div id="settingsModal" class="modal">
+		 <div class="modal-content">
+			 <h4>Settings</h4>
+			 <div class="input-field col s12">
+				<select id="settingsIconSelect">
+					<option value="icon" onclick="loadIconSet('icon')">Default</option>
+					<option value="NATO" onclick="loadIconSet('NATO')">NATO Icons</option>
+				</select>
+				<label>ICON SET</label>
+			</div>
+			<div id="settingsInvertZoom" class="switch">
+		    <label>
+		      Normal Zoom
+		      <input type="checkbox">
+		      <span class="lever"></span>
+		      Invert Zoom
+		    </label>
+		  </div>
+		 </div>
+		 <div class="modal-footer">
+			 <a href="#!" class="modal-action modal-close waves-effect waves-green btn-flat">Close</a>
+		 </div>
+	 </div>
 	</div>
 	<script type="text/javascript">
 	$(document).ready(function(){
@@ -461,6 +468,19 @@
 			$('#submitName').removeClass('disabled');
 			Materialize.updateTextFields();
 		});
+		$('#settingsModal').modal({
+			dismissible: true,
+			opacity: .5,
+		});
+		$('#settingsIconSelect').on('change', function(evt) {
+			loadIconSet(evt.target.value);
+		});
+		$('#settingsInvertZoom').on('change', function(evt) {
+			zoomDirection *= -1;
+		});
+		$(document).ready(function() {
+			$('select').material_select();
+		});
 		$('#historyGraphSelector').on('click', function(evt) {
 			if(evt.target.tagName != 'A') return; // sometimes it selects the outer <ul> as target
 			var type = evt.target.innerHTML;
@@ -481,6 +501,7 @@
 	});
 	let width = window.innerWidth, height = window.innerHeight - 64, //height of top tab
 	keys = new Array(100).fill(0), timer,  mapSize = 25, moved = true,
+	zoomDirection = 1,
 	iconSize = 5,
 	iconSet = "icon",
 	unitTypeNames = ["Infantry", "MechanizedInfantry", "Tank", "Artillery",
@@ -1151,7 +1172,7 @@
 	});
 	function zoom(clicks){
 		moved = true;
-		let pt = t.transformedPoint(mouse.x,mouse.y), factor = Math.pow(scaleFactor,clicks);
+		let pt = t.transformedPoint(mouse.x,mouse.y), factor = Math.pow(scaleFactor,clicks*zoomDirection);
 		t.save();
 		t.translate(pt.x,pt.y);
 		t.scale(factor,factor);
