@@ -530,6 +530,7 @@
 				mines : [-1, 1],
 				oilRigs : [0,1]
 			}
+			this.renderWhere = [];
 			return map[x][y] = this;
 		}
 		get neighbors(){
@@ -557,10 +558,10 @@
 			}
 			// solution #2: just paint 4 copies of the original map... (INEFFICIENCY UGHH)
 			color = color || this.color;
-			Hex.render(x, y, color, borders);
-			Hex.render(x - Hshift * 2, y, color, borders);
-			Hex.render(x - Hshift, y - Vshift, color, borders);
-			Hex.render(x - Hshift, y + Vshift, color, borders);
+			this.renderWhere = [[0, 0], [-Hshift * 2, 0], [-Hshift, -Vshift], [-Hshift, Vshift]];
+			for (let i = 0; i < this.renderWhere.length; i++) {
+				Hex.render(x + this.renderWhere[i][0], y + this.renderWhere[i][1], color, borders)
+			}
 		}
 		unitNumberFromType(typeName) {
 			let sum = 0;
@@ -578,7 +579,9 @@
 						if (this.units[j].typeName == unitTypeNames[i]) unitObject = this.units[j];
 					}
 					var coords = this.interiorPoint(unitObject.hexDisp[0], unitObject.hexDisp[1], 3);
-					unitObject.render(coords[0], coords[1], t.getTransform().a, num);
+					for (let j = 0; j < this.renderWhere.length; j++) {
+						unitObject.render(coords[0] + this.renderWhere[j][0], coords[1] + this.renderWhere[j][1], t.getTransform().a, num);
+					}
 				}
 			}
 		}
@@ -600,7 +603,9 @@
 			for (let i = 0; i < buildings.length; i++) {
 				if (this[buildings[i]] > 0) {
 					var dp = this.interiorPoint(this.hexDisp[buildings[i]][0], this.hexDisp[buildings[i]][1], 3);
-					t.drawImage(document.getElementById(icons[i]), dp[0], dp[1], iconSize, iconSize);
+					for (let j = 0; j < this.renderWhere.length; j++) {
+						t.drawImage(document.getElementById(icons[i]), dp[0] + this.renderWhere[j][0], dp[1] + this.renderWhere[j][1], iconSize, iconSize);
+					}
 					//todo - add building number tracking (or can there be more than one per tile?)
 				}
 			}
@@ -633,7 +638,7 @@
 				t.moveTo(x + Math.cos(Math.PI / 3 * ang) * r * 0.95, y - Math.sin(Math.PI / 3 * ang) * r * 0.95);
 				t.lineTo(x + Math.cos(Math.PI / 3 * (ang + 1)) * r * 0.95, y - Math.sin(Math.PI / 3 * (ang + 1)) * r * 0.95);
 				t.strokeStyle = borderColor;
-				
+
 				t.stroke();
 			}
 		}
@@ -928,8 +933,7 @@
 			let size = iconSize;
 			t.fillStyle = this.color;
 			if (this.canMove[0]) {
-				t.strokeStyle = "black";
-				t.lineWidth = 0;
+				t.strokeStyle = "transparent";
 				t.beginPath();
 				t.arc(x, y, size / 2, 0, Math.PI * 2);
 				t.stroke();
