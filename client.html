@@ -482,9 +482,11 @@
 	let width = window.innerWidth, height = window.innerHeight - 64, //height of top tab
 	keys = new Array(100).fill(0), timer,  mapSize = 25, moved = true,
 	iconSize = 5,
+	iconSet = "icon",
 	unitTypeNames = ["Infantry", "MechanizedInfantry", "Tank", "Artillery",
 		"Destroyer", "Cruiser", "Battleship", "Submarine", "AircraftCarrier", "Transport",
-		"Fighter", "Bomber", "Helicopter"];
+		"Fighter", "Bomber"/*, "Helicopter"*/],
+	buildingTypeNames = ["Mine", "OilRig", "UraniumMine", "UraniumRefinery"];
 	c.width = width;
 	c.height = height;
 	const scaleFactor = 1.04, t = c.getContext('2d'), hgraph = historyGraph.getContext('2d'),
@@ -502,6 +504,25 @@
 	t.lineCap = "square";
 	t.lineWidth = 2;
 	t.translate(width / 2, height / 2);
+	function loadIconSet(setName) {
+		iconSet = setName;
+		while (imageSources.firstChild) {
+			imageSources.removeChild(imageSources.firstChild);
+		}
+		for (let i = 0; i < unitTypeNames.length; i++) {
+			let img = document.createElement("img");
+			img.src = "images/" + setName + unitTypeNames[i] + ".png";
+			img.id = setName + unitTypeNames[i];
+			imageSources.appendChild(img);
+		}
+		for (let i = 0; i < buildingTypeNames.length; i++) {
+			let img = document.createElement("img");
+			img.src = "images/" + setName + buildingTypeNames[i] + ".png";
+			img.id = setName + buildingTypeNames[i];
+			imageSources.appendChild(img);
+		}
+	}
+	loadIconSet(iconSet);
 	function hexCoordToPoint(x, y) {
 		return [(x + y) * r * 1.5, (y - x) * r * .866];
 	}
@@ -510,7 +531,7 @@
 	}
 	var selected = {
 		units : [],
-		tile : [-1, -1],
+		tile : {units : []},
 		clear : function() {
 			for (let i = 0; i < this.units.length; i++) {
 				this.units[i].selected = false;
@@ -530,6 +551,7 @@
 					if (this.tile.units[i].typeName == unit.typeName && this.tile.units[i].selected == false) {
 						this.tile.units[i].selected = true;
 						this.units.push(this.tile.units[i]);
+						if (!selectAll) return;
 					}
 				}
 			} else {//if unit is on different tile
@@ -542,7 +564,7 @@
 				for (let i = 0; i < this.tile.units.length; i++) {
 					if (this.tile.units[i].typeName == unit.typeName && this.tile.units[i].selected == false) {
 						this.tile.units[i].selected = true;
-						this.units.push(tile.units[i]);
+						this.units.push(this.tile.units[i]);
 					}
 				}
 			}
@@ -638,7 +660,7 @@
 		drawBuildings() {
 			var [x, y] = hexCoordToPoint(this.x, this.y),
 			buildings = ["mines", "oilRigs"],
-			icons = ["iconMine", "iconOilRig"];
+			icons = [iconSet + "Mine", iconSet + "OilRig"];
 			if (this.cities > 0) {
 				t.fillStyle = this.ownerColor;
 				t.strokeStyle = "black";
@@ -853,7 +875,6 @@
 			this.carryPlanes = 0; //defaults (most common);
 			this.carryWeight = 0;
 			this.isPlane = false;
-			this.icon = document.getElementById("icon" + this.typeName);
 			this.selected = false;
 			switch (typeName) {
 				case "Infantry":
@@ -969,6 +990,9 @@
 					break;
 			}
 		}
+		icon() {
+			return document.getElementById(iconSet + this.typeName);
+		}
 		canCarry(unit) {
 			if (unit.isPlane) {
 				if (this.carriedPlanes() + 1 > this.carryPlanes) return false;
@@ -1001,7 +1025,7 @@
 		render(x, y, number, numSelected) {
 			let size = iconSize;
 			t.fillStyle = this.color;
-			if (this.canMove[0]) {
+			if (this.canMove[0] && iconSet == "icon") {
 				t.lineWidth = 0.5;
 				t.strokeStyle = "transparent";
 				if (numSelected > 0) t.strokeStyle = this.color;
@@ -1014,9 +1038,8 @@
 					t.fillRect(x - size / 2 - 0.5, y - size / 2 - 0.5, size + 1, size + 1);
 				}
 				t.fillRect(x - size / 2, y - size / 2, size, size);
-
 			}
-			t.drawImage(this.icon, x - size / 2, y - size / 2, size, size);
+			t.drawImage(this.icon(), x - size / 2, y - size / 2, size, size);
 			t.fillStyle = "#fff";
 			t.font = "3px sans-serif";
 			var text = number;
