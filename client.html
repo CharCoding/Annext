@@ -573,11 +573,28 @@
 	var selected = {
 		units : [],
 		tile : {units : [], hexesWithinDist : function() {return [];}}, //avoid errors
+		moveTo : function(hex) {
+			var unselected = [];
+			for (let i = 0; i < selected.tile.units.length; i++) {
+				if (!selected.tile.units[i].selected) unselected.push(selected.tile.units[i]);
+			}
+			selected.tile.units = unselected;
+			hex.units = selected.units;
+			selected.clear();
+		},
 		clear : function() {
 			for (let i = 0; i < this.units.length; i++) {
 				this.units[i].selected = false;
 			}
 			this.units = [];
+			this.refreshMoves();
+		},
+		refreshMoves : function() {
+			if (this.units.length === 0) {
+				this.canMoveTo = [];
+				return;
+			}
+			this.canMoveTo = this.tile.hexesWithinDist(this.moveRange(), this.moveBiomes());
 		},
 		moveRange : function() {
 			var min = 999;
@@ -596,10 +613,7 @@
 			}
 			return biomes;
 		},
-		canMoveTo : function() {
-			if (this.units.length === 0) return [];
-			return this.tile.hexesWithinDist(this.moveRange(), this.moveBiomes());
-		},
+		canMoveTo : [],
 		unitsOfType : function(typeName) {
 			let sum = 0;
 			for (let i = 0; i < this.units.length; i++) {
@@ -630,6 +644,7 @@
 					}
 				}
 			}
+			this.refreshMoves();
 		}
 	}
 	class Hex {
@@ -716,7 +731,7 @@
 			}
 			// solution #2: just paint 4 copies of the original map... (INEFFICIENCY UGHH)
 			color = color || this.color;
-			if (selected.canMoveTo().indexOf(this) != -1) {
+			if (selected.canMoveTo.indexOf(this) != -1) {
 				color = getColorFromScale(colors[this.type], "#000000", 0.25);
 			}
 			this.renderWhere = [[0, 0], [-Hshift * 2, 0], [-Hshift, -Vshift], [-Hshift, Vshift]];
@@ -1194,10 +1209,15 @@
 			*/
 			moved = true;
 		} else {
-			var selectAll = false;
-			if (keys[16] > 0) selectAll = true;
 			let pt = t.transformedPoint(mouse.x, mouse.y);
-			Hex.round(pt.x, pt.y).click(pt.x, pt.y, selectAll);
+			var selectAll = false, hex = Hex.round(pt.x, pt.y)
+			if (selected.canMoveTo.indexOf(hex) == -1 || selected.tile == hex) {
+				if (keys[16] > 0) selectAll = true;
+				hex.click(pt.x, pt.y, selectAll);
+				selected.refreshMoves();
+			} else {
+				selected.moveTo(hex);
+			}
 		}
 	},false);
 	c.addEventListener('contextmenu',function(evt){
