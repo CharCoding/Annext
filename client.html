@@ -544,6 +544,26 @@
 		}
 	}
 	loadIconSet(iconSet);
+	function getColorFromScale(start, end, pos) {
+		pos = Math.max(0, Math.min(1, pos));
+	  var re = new RegExp(/^#(?:[0-9a-f]{3}){1,2}$/i); //thanks Google
+	  if (!(re.test(start) && re.test(end))) return end;
+	  function prism(color) {
+	    var col = color.substring(1,color.length), arr = [];
+	    for (var i=0; i<3; i++) {
+	      arr.push(parseInt(col.substring(i * 2, i * 2 + 2), 16));
+	    }
+	    return arr;
+	  }
+	  var s = prism(start), e = prism(end), x = [];
+	  for (var i=0;i<s.length;i++){
+	    x.push(Math.round( s[i] + pos*(e[i] - s[i]) ));
+	    x[i] = Math.max(0, Math.min(x[i], 255));
+	    x[i] = x[i].toString(16);
+	    if (x[i].length < 2) x[i] = "0" + x[i];
+	  }
+	  return "#" + x.join("");
+	}
 	function hexCoordToPoint(x, y) {
 		return [(x + y) * r * 1.5, (y - x) * r * .866];
 	}
@@ -552,12 +572,33 @@
 	}
 	var selected = {
 		units : [],
-		tile : {units : []},
+		tile : {units : [], hexesWithinDist : function() {return [];}}, //avoid errors
 		clear : function() {
 			for (let i = 0; i < this.units.length; i++) {
 				this.units[i].selected = false;
 			}
 			this.units = [];
+		},
+		moveRange : function() {
+			var min = 999;
+			for (let i = 0; i < this.units.length; i++) {
+				min = Math.min(min, this.units[i].move);
+			}
+			return min;
+		},
+		moveBiomes : function() {
+			var biomes = new Array(colors.length);
+			biomes.fill(true);
+			for (let i = 0; i < this.units.length; i++) {
+				for (let j = 0; j < colors.length; j++) {
+					if (!this.units[i].canMove[j]) biomes[j] = false;
+				}
+			}
+			return biomes;
+		},
+		canMoveTo : function() {
+			if (this.units.length === 0) return [];
+			return this.tile.hexesWithinDist(this.moveRange(), this.moveBiomes());
 		},
 		unitsOfType : function(typeName) {
 			let sum = 0;
@@ -575,7 +616,7 @@
 						if (!selectAll) return;
 					}
 				}
-			} else {//if unit is on different tile
+			} else { //if unit is on different tile
 				this.clear();
 				this.tile = map[hexx][hexy];
 				unit.selected = true;
@@ -598,7 +639,7 @@
 			this.x = x;
 			this.y = y;
 			this.owner = null;
-			this.ownerColor = "#00f";
+			this.ownerColor = "#0000ff";
 			this.cities = 0;
 			this.mines = 0;
 			this.oilRigs = 0;
@@ -611,9 +652,9 @@
 			this.uranium = Math.round(Math.random() * 25); //placeholder (based on manual), change at some point
 			this.hexDisp = {
 				mines : [-1, 1],
-				oilRigs : [0,1]
+				oilRigs : [0, 1]
 			}
-			this.renderWhere = [];
+			this.renderWhere = []; //for rendering a hex multiple times for infinite scroll
 			return map[x][y] = this;
 		}
 		get neighbors(){
@@ -626,6 +667,40 @@
 				map[this.x][mod(this.y + 1, mapSize)],
 			];
 		}
+		hexesWithinDist(n, moveBiomes) {
+			var canGo = [this],
+			fringes = [[this]];
+	    for (let i = 1; i <= n; i++) {
+				fringes.push([]);
+				for (let j = 0; j < fringes[i-1].length; j++) {
+					for (let k = 0; k < fringes[i-1][j].neighbors.length; k++) {
+						let neighbor = fringes[i-1][j].neighbors[k];
+						if (canGo.indexOf(neighbor) == -1 && moveBiomes[neighbor.type]) {
+							canGo.push(neighbor);
+							fringes[i].push(neighbor);
+						}
+					}
+				}
+			}
+	    return canGo;
+		}
+		/*hexesWithinRange(n){
+			var range = [];
+			for (let i = 0; i < map.length; i++) {
+				for (let j = 0; j < map.length; j++) {
+					if (Hex.distance(this, map[i][j]) <= n){
+						range.push(map[i][j]);
+					}
+				}
+			}
+			return range;
+		}
+		static distance(a, b) { //BUG: does not properly account for map wrapping
+			var d1 = (Math.abs(a.x - b.x) + Math.abs(a.y - b.y) + Math.abs(a.x + b.x - b.y - a.y)) / 2,
+			cx = a.x + map.length, cy = a.x + map.length,
+			d2 = (Math.abs(cx - b.x) + Math.abs(cy - b.y) + Math.abs(cx + b.x - b.y - cy)) / 2;
+			return Math.min(d1, d2);
+		}*/
 		draw(color, r){
 			r = r || 16;
 			let x = (this.x + this.y) * r * 1.5, y = (this.y - this.x) * r * .866,
@@ -641,24 +716,13 @@
 			}
 			// solution #2: just paint 4 copies of the original map... (INEFFICIENCY UGHH)
 			color = color || this.color;
+			if (selected.canMoveTo().indexOf(this) != -1) {
+				color = getColorFromScale(colors[this.type], "#000000", 0.25);
+			}
 			this.renderWhere = [[0, 0], [-Hshift * 2, 0], [-Hshift, -Vshift], [-Hshift, Vshift]];
 			for (let i = 0; i < this.renderWhere.length; i++) {
 				Hex.render(x + this.renderWhere[i][0], y + this.renderWhere[i][1], color, borders)
 			}
-		}
-		unitNumberFromType(typeName) {
-			let sum = 0;
-			for (let i = 0; i < this.units.length; i++) {
-				if (this.units[i].typeName == typeName) ++sum;
-			}
-			return sum;
-		}
-		getAllUnitsOfType(typeName) {
-			let r = [];
-			for (let i = 0; i < this.units.length; i++) {
-				if (this.units[i].typeName == typeName) r.push(this.units[i]);
-			}
-			return r;
 		}
 		drawUnits() {
 			for (let i = 0; i < unitTypeNames.length; i++) {
@@ -691,13 +755,14 @@
 				t.fill();
 				t.fillStyle = "white";
 				t.font = "6px sans-serif";
-				t.fillText(this.cities, x - 1, y + 2);
+				t.textAlign = "center";
+				t.fillText(this.cities, x, y + 2);
 			}
 			for (let i = 0; i < buildings.length; i++) {
 				if (this[buildings[i]] > 0) {
 					var dp = this.interiorPoint(this.hexDisp[buildings[i]][0], this.hexDisp[buildings[i]][1], 3);
 					for (let j = 0; j < this.renderWhere.length; j++) {
-						t.drawImage(document.getElementById(icons[i]), dp[0] + this.renderWhere[j][0], dp[1] + this.renderWhere[j][1], iconSize, iconSize);
+						t.drawImage(document.getElementById(icons[i]), dp[0] + this.renderWhere[j][0] - iconSize / 2, dp[1] + this.renderWhere[j][1] - iconSize / 2, iconSize, iconSize);
 					}
 					//todo - add building number tracking (or can there be more than one per tile?)
 				}
@@ -788,6 +853,20 @@
 				}
 			}
 		}
+		unitNumberFromType(typeName) {
+			let sum = 0;
+			for (let i = 0; i < this.units.length; i++) {
+				if (this.units[i].typeName == typeName) ++sum;
+			}
+			return sum;
+		}
+		getAllUnitsOfType(typeName) {
+			let r = [];
+			for (let i = 0; i < this.units.length; i++) {
+				if (this.units[i].typeName == typeName) r.push(this.units[i]);
+			}
+			return r;
+		}
 		extractResources() {
 			var production = {
 				development : this.cities,
@@ -857,7 +936,6 @@
 		addUnit(x, y, unit){
 			let hex = map[x][y];
 			hex.units.push(unit);
-			drawUnit(unit.t)
 			// more webSocket majikz and map majikz
 		}
 		build(x, y, building){
@@ -902,56 +980,56 @@
 					this.move = 2;
 					this.cost = [2, 0, 0];
 					this.weight = 1;
-					this.canMove = [false, true]; //[0] -> sea, [1] -> land
-					this.isBase = [false, true]; //can unit stop and stay there without dying
+					this.canMove = [false, true, true, true]; //[0] -> sea, [1] -> land, [2] -> desert, etc.
+					this.isBase = [false, true, true, true]; //can unit stop and stay there without dying
 					this.hexDisp = [-1, -1]; //where in a tile the unit is displayed (see the intrahex position helper in the images folder)
 					break;
 				case "MechanizedInfantry":
 					this.move = 2;
 					this.cost = [2, 1, 0];
 					this.weight = 2;
-					this.canMove = [false, true];
-					this.isBase = [false, true];
+					this.canMove = [false, true, true, true];
+					this.isBase = [false, true, true, true];
 					this.hexDisp = [2, -1];
 					break;
 				case "Artillery":
 					this.move = 2;
 					this.cost = [3, 1, 0];
 					this.weight = 2;
-					this.canMove = [false, true];
-					this.isBase = [false, true];
-					this.hexDisp = [-2, 1];
+					this.canMove = [false, true, true, true];
+					this.isBase = [false, true, true, true];
+					this.hexDisp = [-2, 1]
 					break;
 				case "Tank":
 					this.move = 2;
 					this.cost = [2, 1, 1];
 					this.weight = 2;
-					this.canMove = [false, true];
-					this.isBase = [false, true];
-					this.hexDisp = [1, 1];
+					this.canMove = [false, true, true, true];
+					this.isBase = [false, true, true, true];
+					this.hexDisp = [1, 1]
 					break;
 				case "Destroyer":
 					this.move = 3;
 					this.cost = [2, 0, 2];
 					this.weight = 40; //some number larger than what anything can carry
-					this.canMove = [true, false];
-					this.isBase = [true, false];
+					this.canMove = [true, false, false, false];
+					this.isBase = [true, false, false, false];
 					this.hexDisp = [0, -1];
 					break;
 				case "Cruiser":
 					this.move = 3;
 					this.cost = [2, 2, 0];
 					this.weight = 40;
-					this.canMove = [true, false];
-					this.isBase = [true, false];
+					this.canMove = [true, false, false, false];
+					this.isBase = [true, false, false, false];
 					this.hexDisp = [1, 0];
 					break;
 				case "Battleship":
 					this.move = 3;
 					this.cost = [2, 2, 2];
 					this.weight = 40;
-					this.canMove = [true, false];
-					this.isBase = [true, false];
+					this.canMove = [true, false, false, false];
+					this.isBase = [true, false, false, false];
 					this.hexDisp = [-1, 0];
 					break;
 				case "AircraftCarrier":
@@ -960,16 +1038,16 @@
 					this.weight = 80;
 					this.carryWeight = 0;
 					this.carryPlanes = 4;
-					this.canMove = [true, false];
-					this.isBase = [true, false];
+					this.canMove = [true, false, false, false];
+					this.isBase = [true, false, false, false];
 					this.hexDisp = [0, 0];
 					break;
 				case "Submarine":
 					this.move = 3;
 					this.cost = [2, 2, 0];
 					this.weight = 40;
-					this.canMove = [true, false];
-					this.isBase = [true, false];
+					this.canMove = [true, false, false, false];
+					this.isBase = [true, false, false, false];
 					this.hexDisp = [-1, 2];
 					break;
 				case "Transport":
@@ -977,17 +1055,17 @@
 					this.cost = [1, 4, 0];
 					this.weight = 40;
 					this.carryWeight = 12;
-					this.canMove = [true, false];
-					this.isBase = [true, false];
+					this.canMove = [true, false, false, false];
+					this.isBase = [true, false, false, false];
 					this.hexDisp = [1, -1];
 					break;
 				case "Fighter":
-					this.move = 12; //flying back also counts, so when operating from a single base range = 6
+					this.move = 12; //flying back also counts, so when operating from a single base range = move / 2
 					this.cost = [4, 0, 3];
 					this.weight = 999;
 					this.carryWeight = 1;
-					this.canMove = [true, true];
-					this.isBase = [false, false];
+					this.canMove = [true, true, true, true];
+					this.isBase = [false, false, false, false];
 					this.isPlane = true;
 					this.hexDisp = [0, -2];
 					break;
@@ -996,8 +1074,8 @@
 					this.cost = [4, 3, 0];
 					this.weight = 999;
 					this.carryWeight = 2;
-					this.canMove = [true, true];
-					this.isBase = [false, false];
+					this.canMove = [true, true, true, true];
+					this.isBase = [false, false, false, false];
 					this.isPlane = true;
 					this.hexDisp = [2, -2];
 					break;
@@ -1005,8 +1083,8 @@
 					this.move = 3;
 					this.cost = [3, 1, 1];
 					this.weight = 2;
-					this.canMove = [true, true];
-					this.isBase = [false, true];
+					this.canMove = [true, true, true, true];
+					this.isBase = [false, true, true, false];
 					this.hexDisp = [1, -2];
 					break;
 			}
@@ -1063,6 +1141,7 @@
 			t.drawImage(this.icon(), x - size / 2, y - size / 2, size, size);
 			t.fillStyle = "#fff";
 			t.font = "3px sans-serif";
+			t.textAlign = "center";
 			var text = number;
 			if (numSelected > 0) text = numSelected + "/" + number;
 			t.fillText(text, x + size / 6, y - size / 6);
@@ -1206,16 +1285,17 @@
 			for(let y = 0; y < mapSize; y++)
 				map[x][y].draw();
 		}
+
+		let pt = t.transformedPoint(mouse.x, mouse.y);
+		Hex.round(pt.x, pt.y).draw("outline");
+		pt = t.transformedPoint(width / 2, height / 2);
+		c.style.backgroundPosition = (width / 2 - pt.x) / 20 + 'px ' + (height / 2 - pt.y) / 20 + 'px';
 		for(let x = 0; x < mapSize; x++){ //looping second time so that hexes don't cover units
 			for(let y = 0; y < mapSize; y++) {
 				map[x][y].drawUnits();
 				map[x][y].drawBuildings();
 			}
 		}
-		let pt = t.transformedPoint(mouse.x, mouse.y);
-		Hex.round(pt.x, pt.y).draw("outline");
-		pt = t.transformedPoint(width / 2, height / 2);
-		c.style.backgroundPosition = (width / 2 - pt.x) / 20 + 'px ' + (height / 2 - pt.y) / 20 + 'px';
 	}
 	var prng = {
 		m : Math.pow(2, 32), //see https://en.wikipedia.org/wiki/Linear_congruential_generator#Parameters_in_common_use
@@ -1292,16 +1372,22 @@
 	Player.god = false; // edit map with this
 
 	//UNIT RENDER TESTING
-	map[0][1].units = [new Unit("Infantry", "", "#00f"), new Unit("Tank", "", "#00f"),
-	 new Unit("Artillery", "", "#00f"), new Unit("MechanizedInfantry", "", "#00f"),
-	 new Unit("Artillery", "", "#00f"), new Unit("MechanizedInfantry", "", "#00f"),];
+	map[0][1].units = [new Unit("Infantry", "", "#00f"),
+		new Unit("Tank", "", "#00f"),
+		new Unit("Artillery", "", "#00f"),
+		new Unit("MechanizedInfantry", "", "#00f"),
+		new Unit("Artillery", "", "#00f"),
+		new Unit("MechanizedInfantry", "", "#00f"),
+	 	new Unit("Fighter", "", "#00f"),
+		new Unit("Bomber", "", "#00f"),];
 	map[5][0].units = [new Unit("AircraftCarrier", "", "#f00"),
 		new Unit("Destroyer", "", "#f00"), new Unit("Destroyer", "", "#f00"),
 		new Unit("Cruiser", "", "#f00"), new Unit("Cruiser", "", "#f00"), new Unit("Cruiser", "", "#f00"),
 		new Unit("Submarine", "", "#f00"),
 		new Unit("Transport", "", "#f00"),
-		new Unit("Battleship", "", "#f00")]
-
+		new Unit("Battleship", "", "#f00"),
+		new Unit("Fighter", "", "#f00"),
+		new Unit("Bomber", "", "#f00"),];
 	//BUILD RENDER TESTING
 	map[0][1].cities = 3;
 	map[0][1].mines = 1;
