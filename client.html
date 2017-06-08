@@ -579,7 +579,7 @@
 				if (!selected.tile.units[i].selected) unselected.push(selected.tile.units[i]);
 			}
 			selected.tile.units = unselected;
-			hex.units = selected.units;
+			hex.units = hex.units.concat(selected.units);
 			selected.clear();
 		},
 		clear : function() {
