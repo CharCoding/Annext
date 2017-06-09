@@ -263,7 +263,31 @@
 
 				</div>
 			</div>
-			<canvas id="c"></canvas>
+			<div class="row">
+				<canvas id="c"></canvas>
+			</div>
+			<div class="row">
+					<div class="card pink" style="position:fixed; top:93%; height: 6%; width:40%;">
+						<div class="card-content white-text" style="padding: 10px;">
+							<div class="col s3">
+								<span id="infoCurrentTurn" class="card-title">Turn 0</span>
+							</div>
+							<div class="col s3">
+								<p id="info-development"><i class="material-icons">receipt</i>0/0</p>
+							</div>
+							<div class="col s2">
+								<p id="info-steel"><i class="material-icons">view_week</i>0</p>
+							</div>
+							<div class="col s2">
+								<p id="info-oil"><i class="material-icons">invert_colors</i>0</p>
+							</div>
+							<div class="col s2">
+								<p id="info-uranium"><i class="material-icons">new_releases</i>0</p>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
 			<div id="action" class="fixed-action-btn horizontal">
 				<a class="btn-floating btn-large pink waves-effect waves-light">
 					<i class="large material-icons">add</i>
@@ -521,7 +545,14 @@
 		"Destroyer", "Cruiser", "Battleship", "Submarine", "AircraftCarrier", "Transport",
 		"Fighter", "Bomber"/*, "Helicopter"*/],
 	buildingTypeNames = ["Mine", "OilRig", "UraniumMine", "UraniumRefinery"],
-	useInfiniteScroll = false;
+	useInfiniteScroll = false,
+	materialResourceIcons = { //material icons used for each resource. Do they make sense? No.
+		development : "receipt",
+		steel : "view_week",
+		oil : "invert_colors",
+		uranium : "new_releases"
+	},
+	resourceNames = ["development", "steel", "oil", "uranium"];
 	c.width = width;
 	c.height = height;
 	const scaleFactor = 1.04, t = c.getContext('2d'), hgraph = historyGraph.getContext('2d'),
@@ -939,6 +970,21 @@
 			this.color = 'indigo'; // TEMPORARY, players should get color code from server.
 			this.hexColor = '#3f51b5'; // used by Hex.draw, (borders/units/buildings etc.)
 		}
+		updateInfoBar() {
+			for (let i = 0; i < resourceNames.length; i++) {
+				document.getElementById("info-" + resourceNames[i]).innerHTML = "<i class='material-icons'>" + materialResourceIcons[resourceNames[i]] + "</i>" + this[resourceNames[i]];
+				if (resourceNames[i] == "development") {
+					document.getElementById("info-" + resourceNames[i]).innerHTML += "/" + this.totalCities();
+				}
+			}
+		}
+		totalCities() {
+			let sum = 0;
+			for (let i = 0; i < this.tileList.length; i++) {
+				sum += this.tileList[i].cities;
+			}
+			return sum;
+		}
 		get numberOfUnits() {
 			return this.landUnits + this.seaUnits + this.airUnits;
 		}
@@ -964,6 +1010,10 @@
 					this[j] += tileResources[j];
 				}
 			}
+		}
+		nextTurn() {
+			this.getTileResources();
+			this.updateInfoBar();
 		}
 	}
 	function getAbbr(str){
