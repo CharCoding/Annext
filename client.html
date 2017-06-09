@@ -416,12 +416,22 @@
 				</select>
 				<label>ICON SET</label>
 			</div>
+			<p>Zoom:</p>
 			<div id="settingsInvertZoom" class="switch">
 		    <label>
 		      Normal Zoom
 		      <input type="checkbox">
 		      <span class="lever"></span>
 		      Invert Zoom
+		    </label>
+		  </div>
+			<p>Infinite map scroll:</p>
+			<div id="settingsInfiniteScroll" class="switch">
+		    <label>
+		      Disabled
+		      <input type="checkbox">
+		      <span class="lever"></span>
+		      Enabled (WARNING: BETA)
 		    </label>
 		  </div>
 		 </div>
@@ -478,6 +488,9 @@
 		$('#settingsInvertZoom').on('change', function(evt) {
 			zoomDirection *= -1;
 		});
+		$('#settingsInfiniteScroll').on('change', function(evt) {
+			useInfiniteScroll = !useInfiniteScroll;
+		});
 		$(document).ready(function() {
 			$('select').material_select();
 		});
@@ -507,7 +520,8 @@
 	unitTypeNames = ["Infantry", "MechanizedInfantry", "Tank", "Artillery",
 		"Destroyer", "Cruiser", "Battleship", "Submarine", "AircraftCarrier", "Transport",
 		"Fighter", "Bomber"/*, "Helicopter"*/],
-	buildingTypeNames = ["Mine", "OilRig", "UraniumMine", "UraniumRefinery"];
+	buildingTypeNames = ["Mine", "OilRig", "UraniumMine", "UraniumRefinery"],
+	useInfiniteScroll = false;
 	c.width = width;
 	c.height = height;
 	const scaleFactor = 1.04, t = c.getContext('2d'), hgraph = historyGraph.getContext('2d'),
@@ -699,23 +713,6 @@
 			}
 	    return canGo;
 		}
-		/*hexesWithinRange(n){
-			var range = [];
-			for (let i = 0; i < map.length; i++) {
-				for (let j = 0; j < map.length; j++) {
-					if (Hex.distance(this, map[i][j]) <= n){
-						range.push(map[i][j]);
-					}
-				}
-			}
-			return range;
-		}
-		static distance(a, b) { //BUG: does not properly account for map wrapping
-			var d1 = (Math.abs(a.x - b.x) + Math.abs(a.y - b.y) + Math.abs(a.x + b.x - b.y - a.y)) / 2,
-			cx = a.x + map.length, cy = a.x + map.length,
-			d2 = (Math.abs(cx - b.x) + Math.abs(cy - b.y) + Math.abs(cx + b.x - b.y - cy)) / 2;
-			return Math.min(d1, d2);
-		}*/
 		draw(color, r){
 			r = r || 16;
 			let x = (this.x + this.y) * r * 1.5, y = (this.y - this.x) * r * .866,
@@ -729,12 +726,14 @@
 				// borders.push(this.owner.color); // BUG: this.owner.color doesn't actually give the material design colors.
 				borders.push(this.owner.hexColor); // quick fix
 			}
-			// solution #2: just paint 4 copies of the original map... (INEFFICIENCY UGHH)
 			color = color || this.color;
 			if (selected.canMoveTo.indexOf(this) != -1) {
 				color = getColorFromScale(colors[this.type], "#000000", 0.25);
 			}
-			this.renderWhere = [[0, 0], [-Hshift * 2, 0], [-Hshift, -Vshift], [-Hshift, Vshift]];
+			// solution #2: just paint 4 copies of the original map... (INEFFICIENCY UGHH)
+			if (useInfiniteScroll) {
+				this.renderWhere = [[0, 0], [-Hshift * 2, 0], [-Hshift, -Vshift], [-Hshift, Vshift]];
+			} else this.renderWhere = [[0,0]];
 			for (let i = 0; i < this.renderWhere.length; i++) {
 				Hex.render(x + this.renderWhere[i][0], y + this.renderWhere[i][1], color, borders)
 			}
