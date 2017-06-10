@@ -148,6 +148,11 @@
 		position: absolute;
 		bottom: 48px;
 	}
+	#ctxmenu {
+		position: fixed;
+		display: none;
+		z-index: 99;
+	}
 	</style>
 	<script type="text/javascript">
 	(function(window,document) {
@@ -255,12 +260,32 @@
 			</div>
 		</nav>
 		<div id="map" class="col s12 tabcontent">
-			<div id="ctxmenu">
-				<div id="economymenu">
+			<div id="ctxmenu" class="card">
+				<div id="card-content">
+					<div id="economymenu">
+						<div class="row" id="economymenuContainer">
+							<div class="col s3" id="buildingBuildMenu"></div>
+							<div class="col s3" id="unitBuildMenu"></div>
+							<div class="col s3" id="airUnitBuildMenu"></div>
+						</div>
+						<!--<a style="width: 100%;" class="waves-effect waves-teal grey lighten-4 btn-flat" id="menuBtnCity">
+							+ City</a> <br>
+						<a style="width: 100%;" class="waves-effect waves-teal grey lighten-4 btn-flat" id="menuBtnMine">
+							+ Mine</a> <br>
+						<a style="width: 100%;" class="waves-effect waves-teal grey lighten-4 btn-flat" id="menuBtnOilRig">
+							+ Oil Rig</a> <br> <br>
+						<a style="width: 100%;" class="waves-effect waves-red grey lighten-4 btn-flat" id="menuBtnCity">
+							+ Infantry</a> <br>
+						<a style="width: 100%;" class="waves-effect waves-red grey lighten-4 btn-flat" id="menuBtnMine">
+							+ Mechanized Infantry</a> <br>
+						<a style="width: 100%;" class="waves-effect waves-red grey lighten-4 btn-flat" id="menuBtnOilRig">
+							+ Artillery</a> <br>
+						<a style="width: 100%;" class="waves-effect waves-red grey lighten-4 btn-flat" id="menuBtnOilRig">
+							+ Tank</a> <br> <br>-->
+					</div>
+					<div id="militarymenu">
 
-				</div>
-				<div id="militarymenu">
-
+					</div>
 				</div>
 			</div>
 			<div class="row">
@@ -284,7 +309,7 @@
 								<p id="info-oil"><i class="material-icons">invert_colors</i>0</p>
 							</div>
 							<div class="col s2">
-								<p id="info-uranium"><i class="material-icons">new_releases</i>0</p>
+								<p id="info-uranium"><img src="images/radioactive.png" width="24" height="24"></i>0</p>
 							</div>
 						</div>
 					</div>
@@ -402,7 +427,7 @@
 						<div class="circle grey darken-4 white-text">game</div>
 					</div>
 					<div class="col">
-						The chat supports Skype text formatting (* for bold, ~ for strikethrough, _ for underline, etc.). Please be civil in the chat.
+						The chat supports Skype text formatting (* for bold, ~ for strikethrough, _ for italics, etc.). Please be civil in the chat.
 					</div>
 				</div>
 				<div class="row valign-wrapper">
@@ -487,6 +512,7 @@
 			$('#game').animate({"left": "0"}, 400);
 			$('#countryModal').modal({dismissible: false, inDuration: 250, complete: function() {
 				players.push(new Player($('#countryInput').val().capitalize()));
+				players[0].updateInfoBar();
 				$('#countryName').text(players[0].name);
 				$('#countryModal').remove();
 				loadRenderTests(); //for testing
@@ -528,7 +554,7 @@
 		});
 		$('#nextTurnCheckbox').on('change', function(evt) {
 			nextTurnCheckbox.checked = !nextTurnCheckbox.checked;
-			gameState.nextTurn();
+			gameState.nextTurn(); //once server functionality exists add check for all other players having moved
 		});
 		$('select').material_select();
 		$('#historyGraphSelector').on('click', function(evt) {
@@ -557,13 +583,17 @@
 	unitTypeNames = ["Infantry", "MechanizedInfantry", "Tank", "Artillery",
 		"Destroyer", "Cruiser", "Battleship", "Submarine", "AircraftCarrier", "Transport",
 		"Fighter", "Bomber"/*, "Helicopter"*/],
+	landUnitTypeNames = ["Infantry", "MechanizedInfantry", "Tank", "Artillery"],
+	airUnitTypeNames = ["Fighter", "Bomber"],
+	seaUnitTypeNames = ["Destroyer", "Cruiser", "Battleship", "Submarine", "AircraftCarrier", "Transport"],
 	buildingTypeNames = ["Mine", "OilRig", "UraniumMine", "UraniumRefinery"],
+	terrainTypeNames = ["sea", "plains", "desert", "mountains"],
 	useInfiniteScroll = false,
 	materialResourceIcons = { //material icons used for each resource. Do they make sense? No.
 		development : "receipt",
 		steel : "view_week",
 		oil : "invert_colors",
-		uranium : "new_releases"
+		uranium : ""
 	},
 	resourceNames = ["development", "steel", "oil", "uranium"];
 	c.width = width;
@@ -583,6 +613,11 @@
 	t.lineCap = "square";
 	t.lineWidth = 2;
 	t.translate(width / 2, height / 2);
+	function removeAllChildNodes(el) {
+		while (el.firstChild) {
+			el.removeChild(el.firstChild);
+		}
+	}
 	function loadIconSet(setName) {
 		iconSet = setName;
 		while (imageSources.firstChild) {
@@ -639,7 +674,7 @@
 			selected.tile.units = unselected;
 			hex.units = hex.units.concat(selected.units);
 			for (let i = 0; i < selected.units.length; i++) {
-				selected.units[i].hasMoved = true;
+				selected.units[i].movesLeft -= selected.tile.distanceTo(hex.x, hex.y);
 			}
 			selected.clear();
 			if (selected.tile.owner) {
@@ -663,8 +698,7 @@
 		moveRange : function() {
 			var min = 999;
 			for (let i = 0; i < this.units.length; i++) {
-				min = Math.min(min, this.units[i].move);
-				if (this.units[i].hasMoved) min = 0;
+				min = Math.min(min, this.units[i].movesLeft);
 			}
 			return min;
 		},
@@ -723,7 +757,7 @@
 			for (let x = 0; x < map.length; x++) {
 				for (let y = 0; y < map[x].length; y++) {
 					for (let i = 0; i < map[x][y].units.length; i++) {
-						map[x][y].units[i].hasMoved = false;
+						map[x][y].units[i].movesLeft = map[x][y].units[i].move;
 					}
 				}
 			}
@@ -741,6 +775,7 @@
 			this.mines = 0;
 			this.oilRigs = 0;
 			this.uraniumMines = 0;
+			this.uraniumRefineries = 0;
 			this.units = [];
 			this.isCapital = false;
 			this.development = Infinity; //reserves of each resource
@@ -763,6 +798,15 @@
 				map[mod(this.x - 1, mapSize)][mod(this.y + 1, mapSize)],
 				map[this.x][mod(this.y + 1, mapSize)],
 			];
+		}
+		adjacentToLand(requirePlayerTile){
+			for (let i = 0; i < this.neighbors.length; i++) {
+				if (this.neighbors[i].type != 0) {
+					if (requirePlayerTile && this.neighbors[i].owner == players[0]) {
+						return true;
+					} else return true;
+				}
+			}
 		}
 		hexesWithinDist(n, moveBiomes) {
 			var canGo = [this],
@@ -911,6 +955,11 @@
 			}
 			return [rx, rz];
 		}
+		distanceTo(hx, hy) {
+			var dx = Math.min(Math.abs(hx - this.x), Math.abs(map.length - this.x - hx)),
+			dy = Math.min(Math.abs(hy - this.y), Math.abs(map.length - this.y - hy));
+			return dx + dy;
+		}
 		killUnbasedUnits() {
 			for (let i = 0; i < this.units.length; i++) {
 				if (!this.units[i].isBase[Math.max(this.type, 1)]) {
@@ -995,9 +1044,9 @@
 			this.name = country;
 			this.abbr = getAbbr(country);
 			this.capital = { x: -1, y: -1 };
-			this.development = 0;
-			this.oil = 0;
-			this.steel = 0;
+			this.development = 99;
+			this.oil = 75;
+			this.steel = 75;
 			this.uranium = 0;
 			this.buildings = 0;
 			this.landUnits = 0;
@@ -1009,7 +1058,9 @@
 		}
 		updateInfoBar() {
 			for (let i = 0; i < resourceNames.length; i++) {
-				document.getElementById("info-" + resourceNames[i]).innerHTML = "<i class='material-icons'>" + materialResourceIcons[resourceNames[i]] + "</i>" + this[resourceNames[i]];
+				if (resourceNames[i] != "uranium") {
+					document.getElementById("info-" + resourceNames[i]).innerHTML = "<i class='material-icons'>" + materialResourceIcons[resourceNames[i]] + "</i>" + this[resourceNames[i]];
+				}
 				if (resourceNames[i] == "development") {
 					document.getElementById("info-" + resourceNames[i]).innerHTML += "/" + this.totalCities();
 				}
@@ -1030,17 +1081,48 @@
 			msg.scrollTop = msg.scrollHeight;
 			// webSocket majikz
 		}
-		addUnit(x, y, unit){
-			let hex = map[x][y];
-			hex.units.push(unit);
+		addUnit(x, y, unitType){
+			let hex = map[x][y],
+			unit = new Unit(unitType, this);
+			for (let i = 0; i < unit.cost.length; i++) {
+				if (this[resourceNames[i]] < unit.cost[i]) {
+					alert("ERROR 404: Resources not found. Please restart economy if problem persists.");
+					return;
+				}
+			}
+			for (let i = 0; i < unit.cost.length; i++) this[resourceNames[i]] -= unit.cost[i];
+			this.updateInfoBar();
+			map[x][y].units.push(unit);
 			// more webSocket majikz and map majikz
 		}
-		build(x, y, building){
-			let hex = map[x][y];
+		addBuilding(x, y, building){
+			let hex = map[x][y], cost = [];
+			switch (building) {
+				case "Mine":
+					cost = [4, 0, 4, 0];
+					break;
+				case "OilRig":
+					cost = [4, 4, 0, 0];
+					break;
+				case "UraniumMine":
+					cost = [8, 4, 4, 0];
+					break;
+				case "UraniumRefinery":
+					cost = [20, 3, 10, 3];
+					break;
+			}
+			for (let i = 0; i < cost.length; i++) {
+				if (this[resourceNames[i]] < cost[i]) {
+					alert("ERROR 404: Resources not found. Pillage a few minor nations to get more.");
+					return;
+				}
+			}
+			for (let i = 0; i < cost.length; i++) this[resourceNames[i]] -= cost[i];
+			++map[x][y][building];
+			this.updateInfoBar();
 			// even more webSocket majikz and map majikz
 		}
 		getTileResources() {
-			//assuming that Player.tileList is a list of coordinates, not tile objects
 			for (let i = 0; i < this.tileList.length; i++) {
 				let tileResources = this.tileList[i].extractResources();
 				for (let j in tileResources) {
@@ -1061,6 +1143,7 @@
 			}
 		}
 		nextTurn() {
+			this.development = 0;
 			this.getTileResources();
 			this.updateInfoBar();
 			this.updateOwnedTiles();
@@ -1089,11 +1172,10 @@
 			this.carryWeight = 0;
 			this.isPlane = false;
 			this.selected = false;
-			this.hasMoved = false;
 			switch (typeName) {
 				case "Infantry":
 					this.move = 2;
-					this.cost = [2, 0, 0];
+					this.cost = [2, 0, 0, 0];
 					this.weight = 1;
 					this.canMove = [false, true, true, true]; //[0] -> sea, [1] -> land, [2] -> desert, etc.
 					this.isBase = [false, true, true, true]; //can unit stop and stay there without dying
@@ -1101,7 +1183,7 @@
 					break;
 				case "MechanizedInfantry":
 					this.move = 2;
-					this.cost = [2, 1, 0];
+					this.cost = [2, 1, 0, 0];
 					this.weight = 2;
 					this.canMove = [false, true, true, true];
 					this.isBase = [false, true, true, true];
@@ -1109,7 +1191,7 @@
 					break;
 				case "Artillery":
 					this.move = 2;
-					this.cost = [3, 1, 0];
+					this.cost = [3, 1, 0, 0];
 					this.weight = 2;
 					this.canMove = [false, true, true, true];
 					this.isBase = [false, true, true, true];
@@ -1117,7 +1199,7 @@
 					break;
 				case "Tank":
 					this.move = 2;
-					this.cost = [2, 1, 1];
+					this.cost = [2, 1, 1, 0];
 					this.weight = 2;
 					this.canMove = [false, true, true, true];
 					this.isBase = [false, true, true, true];
@@ -1125,7 +1207,7 @@
 					break;
 				case "Destroyer":
 					this.move = 3;
-					this.cost = [2, 0, 2];
+					this.cost = [2, 0, 2, 0];
 					this.weight = 40; //some number larger than what anything can carry
 					this.canMove = [true, false, false, false];
 					this.isBase = [true, false, false, false];
@@ -1133,7 +1215,7 @@
 					break;
 				case "Cruiser":
 					this.move = 3;
-					this.cost = [2, 2, 0];
+					this.cost = [2, 2, 0, 0];
 					this.weight = 40;
 					this.canMove = [true, false, false, false];
 					this.isBase = [true, false, false, false];
@@ -1141,7 +1223,7 @@
 					break;
 				case "Battleship":
 					this.move = 3;
-					this.cost = [2, 2, 2];
+					this.cost = [2, 2, 2, 0];
 					this.weight = 40;
 					this.canMove = [true, false, false, false];
 					this.isBase = [true, false, false, false];
@@ -1149,7 +1231,7 @@
 					break;
 				case "AircraftCarrier":
 					this.move = 3;
-					this.cost = [3, 1, 3];
+					this.cost = [3, 1, 3, 0];
 					this.weight = 80;
 					this.carryWeight = 0;
 					this.carryPlanes = 4;
@@ -1159,7 +1241,7 @@
 					break;
 				case "Submarine":
 					this.move = 3;
-					this.cost = [2, 2, 0];
+					this.cost = [2, 2, 0, 0];
 					this.weight = 40;
 					this.canMove = [true, false, false, false];
 					this.isBase = [true, false, false, false];
@@ -1167,7 +1249,7 @@
 					break;
 				case "Transport":
 					this.move = 3;
-					this.cost = [1, 4, 0];
+					this.cost = [1, 4, 0, 0];
 					this.weight = 40;
 					this.carryWeight = 12;
 					this.canMove = [true, false, false, false];
@@ -1176,7 +1258,7 @@
 					break;
 				case "Fighter":
 					this.move = 8;
-					this.cost = [4, 0, 3];
+					this.cost = [4, 0, 3, 0];
 					this.weight = 999;
 					this.carryWeight = 1;
 					this.canMove = [true, true, true, true];
@@ -1186,7 +1268,7 @@
 					break;
 				case "Bomber":
 					this.move = 8;
-					this.cost = [4, 3, 0];
+					this.cost = [4, 3, 0, 0];
 					this.weight = 999;
 					this.carryWeight = 2;
 					this.canMove = [true, true, true, true];
@@ -1196,13 +1278,30 @@
 					break;
 				case "Helicopter":
 					this.move = 3;
-					this.cost = [3, 1, 1];
+					this.cost = [3, 1, 1, 0];
 					this.weight = 2;
 					this.canMove = [true, true, true, true];
 					this.isBase = [false, true, true, false];
 					this.hexDisp = [1, -2];
 					break;
+				case "MRBM":
+					this.move = 6;
+					this.cost = [8, 1, 1, 4];
+					this.weight = 2;
+					this.canMove = [true, true, true, true];
+					this.isBase = [false, false, false, false];
+					this.hexDisp = [-2, 2];
+					break;
+				case "ICBM":
+					this.move = 24;
+					this.cost = [10, 1, 4, 4];
+					this.weight = 2;
+					this.canMove = [true, true, true, true];
+					this.isBase = [false, false, false, false];
+					this.hexDisp = [0, 2];
+					break;
 			}
+			this.movesLeft = this.move;
 		}
 		icon() {
 			return document.getElementById(iconSet + this.typeName);
@@ -1275,6 +1374,12 @@
 		$('.pink-text').removeClass('pink-text').addClass(colorScheme[1] + '-text');
 		if(color > 4) $('.white-text').removeClass('white-text').addClass('black-text');
 	}
+	function resetCtxMenu() {
+		ctxmenu.style.display = "none";
+		removeAllChildNodes(airUnitBuildMenu);
+		removeAllChildNodes(buildingBuildMenu);
+		removeAllChildNodes(unitBuildMenu);
+	}
 	function mod(a, b){ return a - Math.floor(a / b) * b; }
 	c.addEventListener('mousedown',function(evt){
 		moved = true;
@@ -1297,7 +1402,11 @@
 		moved = true;
 		mouse.dragStart = null;
 	},false);
-	c.addEventListener('click',function(evt){
+	c.addEventListener('click',function(evt){ //MAIN MAP CANVAS CLICK EVENT
+		resetCtxMenu();
+		$('#menuCityBtn').off();
+		$('#menuMineBtn').off();
+		$('#menuOilRigBtn').off(); //disable event listeners on context menu
 		if(mouse.dragged) return;
 		if (Player.god == true){
 			let pt = t.transformedPoint(mouse.x,mouse.y);
@@ -1309,8 +1418,8 @@
 			*/
 			moved = true;
 		} else {
-			let pt = t.transformedPoint(mouse.x, mouse.y);
-			var selectAll = false, hex = Hex.round(pt.x, pt.y)
+			var pt = t.transformedPoint(mouse.x, mouse.y),
+			selectAll = false, hex = Hex.round(pt.x, pt.y);
 			if (selected.canMoveTo.indexOf(hex) == -1 || selected.tile == hex) {
 				if (keys[16] > 0) selectAll = true;
 				hex.click(pt.x, pt.y, selectAll);
@@ -1322,6 +1431,61 @@
 	},false);
 	c.addEventListener('contextmenu',function(evt){
 		evt.preventDefault();
+		resetCtxMenu();
+		var pt = t.transformedPoint(mouse.x, mouse.y),
+		hex = Hex.round(pt.x, pt.y);
+		ctxmenu.style.display = "inline";
+		ctxmenu.style.left = evt.pageX + "px";
+		ctxmenu.style.top = evt.pageY + "px";
+		economymenu.style.display = "inline";
+		if (hex.type == 0 && hex.adjacentToLand(true)) {
+			for (let i = 0; i < seaUnitTypeNames.length; i++) {
+				var div = document.createElement("div"),
+				img = document.createElement("img");
+				div.className = "row";
+				img.src = "images/" + iconSet + seaUnitTypeNames[i] + ".png";
+				unitBuildMenu.appendChild(div);
+				div.appendChild(img);
+				img.addEventListener("click", function() {
+					players[0].addUnit(hex.x, hex.y, seaUnitTypeNames[i]);
+				});
+			}
+		}
+		if (hex.owner != null && hex.type > 0) { //horrible copy-paste code incoming!
+			for (let i = 0; i < landUnitTypeNames.length; i++) {
+				var div = document.createElement("div"),
+				img = document.createElement("img");
+				div.className = "row";
+				img.src = "images/" + iconSet + landUnitTypeNames[i] + ".png";
+				unitBuildMenu.appendChild(div);
+				div.appendChild(img);
+				img.addEventListener("click", function() {
+					players[0].addUnit(hex.x, hex.y, landUnitTypeNames[i]);
+				});
+			}
+			for (let i = 0; i < airUnitTypeNames.length; i++) {
+				var div = document.createElement("div"),
+				img = document.createElement("img");
+				div.className = "row";
+				img.src = "images/" + iconSet + airUnitTypeNames[i] + ".png";
+				airUnitBuildMenu.appendChild(div);
+				div.appendChild(img);
+				img.addEventListener("click", function() {
+					players[0].addUnit(hex.x, hex.y, airUnitTypeNames[i]);
+				});
+			}
+			for (let i = 0; i < buildingTypeNames.length; i++) {
+				var div = document.createElement("div"),
+				img = document.createElement("img");
+				div.className = "row";
+				img.src = "images/" + iconSet + buildingTypeNames[i] + ".png";
+				buildingBuildMenu.appendChild(div);
+				div.appendChild(img);
+				img.addEventListener("click", function() {
+					players[0].addBuilding(hex.x, hex.y, buildingTypeNames[i]);
+				});
+			}
+		}
 		return false;
 	},false);
 	chatInput.addEventListener('keydown',function(evt){
@@ -1515,6 +1679,8 @@
 		map[0][1].mines = 1;
 		map[0][1].oilRigs = 1;
 		map[0][1].owner = players[0];
+		players[0].tileList = [map[0][1]];
+		players[0].updateInfoBar();
 	}
 	</script>
 </body>
