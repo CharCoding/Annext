@@ -267,10 +267,12 @@
 				<canvas id="c"></canvas>
 			</div>
 			<div class="row">
-					<div class="card pink" style="position:fixed; top:93%; height: 6%; width:40%;">
+					<div class="card pink" style="position:fixed; bottom:0; margin-bottom:0;width:40%;">
 						<div class="card-content white-text" style="padding: 10px;">
 							<div class="col s3">
 								<span id="infoCurrentTurn" class="card-title">Turn 0</span>
+					      <input type="checkbox" id="nextTurnCheckbox" />
+					      <label for="nextTurnCheckbox">Ready</label>
 							</div>
 							<div class="col s3">
 								<p id="info-development"><i class="material-icons">receipt</i>0/0</p>
@@ -381,26 +383,34 @@
 			<div id="msg">
 				<div class="row valign-wrapper">
 					<div class="col icon">
-						<div class="circle purple white-text">INE</div>
+						<div class="circle grey darken-4 white-text">game</div>
 					</div>
 					<div class="col">
-					Lorem ipsum dolor so much text that it has to wrap to the second or even the third line and now things aren't aligned nicely together anymore :(
+						Welcome to Annext. If you do not know how to play, consult the manual. Or don't, and learn by trial and error (mostly error).
 					</div>
 				</div>
 				<div class="row valign-wrapper">
 					<div class="col icon">
-						<div class="circle pink white-text">RWS</div>
+						<div class="circle grey darken-4 white-text">game</div>
 					</div>
 					<div class="col">
-					Single line text
+						Your objective is simple - conquer the world using any means necessary. But do keep in mind that it is only a game. The Annext dev team takes no responsiblity for any actual wars sparked by this game.
 					</div>
 				</div>
 				<div class="row valign-wrapper">
-					<div class="col right-align">
-					I said this
-					</div>
 					<div class="col icon">
-						<div class="circle indigo white-text right">CUI</div>
+						<div class="circle grey darken-4 white-text">game</div>
+					</div>
+					<div class="col">
+						The chat supports Skype text formatting (* for bold, ~ for strikethrough, _ for underline, etc.). Please be civil in the chat.
+					</div>
+				</div>
+				<div class="row valign-wrapper">
+					<div class="col icon">
+						<div class="circle grey darken-4 white-text">game</div>
+					</div>
+					<div class="col">
+						Good luck (if you need it). As Winston Churchill once said: "Success is not final, failure is not fatal: it is the courage to continue that counts." Or, as Napoleon Bonaparte put it: "Glory is fleeting, but obscurity is forever."
 					</div>
 				</div>
 			</div>
@@ -479,6 +489,7 @@
 				players.push(new Player($('#countryInput').val().capitalize()));
 				$('#countryName').text(players[0].name);
 				$('#countryModal').remove();
+				loadRenderTests(); //for testing
 				// TODO: Send country object to server
 			}});
 			$('#countryModal').modal('open');
@@ -515,9 +526,11 @@
 		$('#settingsInfiniteScroll').on('change', function(evt) {
 			useInfiniteScroll = !useInfiniteScroll;
 		});
-		$(document).ready(function() {
-			$('select').material_select();
+		$('#nextTurnCheckbox').on('change', function(evt) {
+			nextTurnCheckbox.checked = !nextTurnCheckbox.checked;
+			gameState.nextTurn();
 		});
+		$('select').material_select();
 		$('#historyGraphSelector').on('click', function(evt) {
 			if(evt.target.tagName != 'A') return; // sometimes it selects the outer <ul> as target
 			var type = evt.target.innerHTML;
@@ -625,7 +638,13 @@
 			}
 			selected.tile.units = unselected;
 			hex.units = hex.units.concat(selected.units);
+			for (let i = 0; i < selected.units.length; i++) {
+				selected.units[i].hasMoved = true;
+			}
 			selected.clear();
+			if (selected.tile.owner) {
+				selected.tile.owner.updateOwnedTiles();
+			}
 		},
 		clear : function() {
 			for (let i = 0; i < this.units.length; i++) {
@@ -645,6 +664,7 @@
 			var min = 999;
 			for (let i = 0; i < this.units.length; i++) {
 				min = Math.min(min, this.units[i].move);
+				if (this.units[i].hasMoved) min = 0;
 			}
 			return min;
 		},
@@ -690,6 +710,23 @@
 				}
 			}
 			this.refreshMoves();
+		}
+	},
+	gameState = {
+		turn : 0,
+		nextTurn : function() {
+			for (let i = 0; i < players.length; i++) {
+				players[i].nextTurn();
+			}
+			++gameState.turn;
+			infoCurrentTurn.innerHTML = "Turn " + gameState.turn;
+			for (let x = 0; x < map.length; x++) {
+				for (let y = 0; y < map[x].length; y++) {
+					for (let i = 0; i < map[x][y].units.length; i++) {
+						map[x][y].units[i].hasMoved = false;
+					}
+				}
+			}
 		}
 	}
 	class Hex {
@@ -792,7 +829,7 @@
 			buildings = ["mines", "oilRigs"],
 			icons = [iconSet + "Mine", iconSet + "OilRig"];
 			if (this.cities > 0) {
-				t.fillStyle = this.ownerColor;
+				t.fillStyle = this.owner.color;
 				t.strokeStyle = "black";
 				t.beginPath();
 				t.arc(x, y, r / 4.5, 0, Math.PI * 2);
@@ -1011,9 +1048,22 @@
 				}
 			}
 		}
+		updateOwnedTiles() {
+			for (let x = 0; x < map.length; x++) {
+				for (let y = 0; y < map[x].length; y++) {
+					if (map[x][y].owner == null && map[x][y].unitNumberFromType("Infantry") > 0) {
+						if (map[x][y].units[0].owner.name == this.name) {
+							map[x][y].owner = this;
+							this.tileList.push(map[x][y]);
+						}
+					}
+				}
+			}
+		}
 		nextTurn() {
 			this.getTileResources();
 			this.updateInfoBar();
+			this.updateOwnedTiles();
 		}
 	}
 	function getAbbr(str){
@@ -1030,15 +1080,16 @@
 		.replace(/{code}(.+){code}/g, '<code>$1</code>');
 	}
 	class Unit {
-		constructor(typeName, ownerName, color) {
-			this.ownerName = ownerName;
-			this.color = color;
+		constructor(typeName, owner, color) {
+			this.owner = owner;
+			this.color = color || owner.hexColor;
 			this.typeName = typeName;
 			this.passengers = [];
 			this.carryPlanes = 0; //defaults (most common);
 			this.carryWeight = 0;
 			this.isPlane = false;
 			this.selected = false;
+			this.hasMoved = false;
 			switch (typeName) {
 				case "Infantry":
 					this.move = 2;
@@ -1124,7 +1175,7 @@
 					this.hexDisp = [1, -1];
 					break;
 				case "Fighter":
-					this.move = 12; //flying back also counts, so when operating from a single base range = move / 2
+					this.move = 8;
 					this.cost = [4, 0, 3];
 					this.weight = 999;
 					this.carryWeight = 1;
@@ -1134,7 +1185,7 @@
 					this.hexDisp = [0, -2];
 					break;
 				case "Bomber":
-					this.move = 12;
+					this.move = 8;
 					this.cost = [4, 3, 0];
 					this.weight = 999;
 					this.carryWeight = 2;
@@ -1440,27 +1491,31 @@
 	// importMap("annext,is0the0,best0game,ever0made,everyone0,should0,play0it0,because0,you0get0,to0rule0,the0whole,world0000",12);
 	Player.god = false; // edit map with this
 
-	//UNIT RENDER TESTING
-	map[0][1].units = [new Unit("Infantry", "", "#00f"),
-		new Unit("Tank", "", "#00f"),
-		new Unit("Artillery", "", "#00f"),
-		new Unit("MechanizedInfantry", "", "#00f"),
-		new Unit("Artillery", "", "#00f"),
-		new Unit("MechanizedInfantry", "", "#00f"),
-	 	new Unit("Fighter", "", "#00f"),
-		new Unit("Bomber", "", "#00f"),];
-	map[5][0].units = [new Unit("AircraftCarrier", "", "#f00"),
-		new Unit("Destroyer", "", "#f00"), new Unit("Destroyer", "", "#f00"),
-		new Unit("Cruiser", "", "#f00"), new Unit("Cruiser", "", "#f00"), new Unit("Cruiser", "", "#f00"),
-		new Unit("Submarine", "", "#f00"),
-		new Unit("Transport", "", "#f00"),
-		new Unit("Battleship", "", "#f00"),
-		new Unit("Fighter", "", "#f00"),
-		new Unit("Bomber", "", "#f00"),];
-	//BUILD RENDER TESTING
-	map[0][1].cities = 3;
-	map[0][1].mines = 1;
-	map[0][1].oilRigs = 1;
+	function loadRenderTests() { //called above
+		map[0][1].units = [new Unit("Infantry", players[0]),
+			new Unit("Tank", players[0]),
+			new Unit("Artillery", players[0]),
+			new Unit("MechanizedInfantry", players[0]),
+			new Unit("Artillery", players[0]),
+			new Unit("MechanizedInfantry", players[0]),
+		 	new Unit("Fighter", players[0]),
+			new Unit("Bomber", players[0])];
+		map[5][0].units = [new Unit("AircraftCarrier", players[0]),
+			new Unit("Destroyer", players[0]),
+			new Unit("Destroyer", players[0]),
+			new Unit("Cruiser", players[0]),
+			new Unit("Cruiser", players[0]),
+			new Unit("Cruiser", players[0]),
+			new Unit("Submarine", players[0]),
+			new Unit("Transport", players[0]),
+			new Unit("Battleship", players[0]),
+			new Unit("Fighter", players[0]),
+			new Unit("Bomber", players[0])];
+		map[0][1].cities = 3;
+		map[0][1].mines = 1;
+		map[0][1].oilRigs = 1;
+		map[0][1].owner = players[0];
+	}
 	</script>
 </body>
 </html>
