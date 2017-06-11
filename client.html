@@ -784,7 +784,9 @@
 			this.uranium = Math.round(Math.random() * 25); //placeholder (based on manual), change at some point
 			this.hexDisp = {
 				mines : [-1, 1],
-				oilRigs : [0, 1]
+				oilRigs : [0, 1],
+				uraniumMines : [-1, 0],
+				uraniumRefineries : [1, 0]
 			}
 			this.renderWhere = []; //for rendering a hex multiple times for infinite scroll
 			return map[x][y] = this;
@@ -804,6 +806,8 @@
 				if (this.neighbors[i].type != 0) {
 					if (requirePlayerTile && this.neighbors[i].owner == players[0]) {
 						return true;
+					} else if (requirePlayerTile) {
+						return false;
 					} else return true;
 				}
 			}
@@ -870,8 +874,8 @@
 		}
 		drawBuildings() {
 			var [x, y] = hexCoordToPoint(this.x, this.y),
-			buildings = ["mines", "oilRigs"],
-			icons = [iconSet + "Mine", iconSet + "OilRig"];
+			buildings = ["mines", "oilRigs", "uraniumMines", "uraniumRefineries"],
+			icons = [iconSet + "Mine", iconSet + "OilRig", iconSet + "UraniumMine", iconSet + "UraniumRefinery"];
 			if (this.cities > 0) {
 				t.fillStyle = this.owner.color;
 				t.strokeStyle = "black";
@@ -1110,6 +1114,9 @@
 				case "UraniumRefinery":
 					cost = [20, 3, 10, 3];
 					break;
+				case "City":
+					cost = [4 + hex.cities];
+					break;
 			}
 			for (let i = 0; i < cost.length; i++) {
 				if (this[resourceNames[i]] < cost[i]) {
@@ -1118,7 +1125,22 @@
 				}
 			}
 			for (let i = 0; i < cost.length; i++) this[resourceNames[i]] -= cost[i];
-			++map[x][y][building];
+			switch (building) {
+				case "Mine":
+					++map[x][y].mines;
+					break;
+				case "OilRig":
+					++map[x][y].oilRigs;
+					break;
+				case "UraniumMine":
+					++map[x][y].uraniumMines;
+					break;
+				case "UraniumRefinery":
+					++map[x][y].uraniumRefineries;
+					break;
+				case "City":
+					++map[x][y].cities;
+			}
 			this.updateInfoBar();
 			// even more webSocket majikz and map majikz
 		}
@@ -1429,6 +1451,25 @@
 			}
 		}
 	},false);
+	function ctxmenuAddIcons(typeNames, container, isBuilding, hex) {
+		for (let i = 0; i < typeNames.length; i++) {
+			var div = document.createElement("div"),
+			img = document.createElement("img");
+			div.className = "row";
+			img.src = "images/" + iconSet + typeNames[i] + ".png";
+			container.appendChild(div);
+			div.appendChild(img);
+			if (isBuilding) {
+				img.addEventListener("click", function() {
+					players[0].addBuilding(hex.x, hex.y, typeNames[i]);
+				});
+			} else {
+				img.addEventListener("click", function() {
+					players[0].addUnit(hex.x, hex.y, typeNames[i]);
+				});
+			}
+		}
+	}
 	c.addEventListener('contextmenu',function(evt){
 		evt.preventDefault();
 		resetCtxMenu();
@@ -1438,7 +1479,7 @@
 		ctxmenu.style.left = evt.pageX + "px";
 		ctxmenu.style.top = evt.pageY + "px";
 		economymenu.style.display = "inline";
-		if (hex.type == 0 && hex.adjacentToLand(true)) {
+		/*if (hex.type == 0 && hex.adjacentToLand(true)) {
 			for (let i = 0; i < seaUnitTypeNames.length; i++) {
 				var div = document.createElement("div"),
 				img = document.createElement("img");
@@ -1484,7 +1525,23 @@
 				img.addEventListener("click", function() {
 					players[0].addBuilding(hex.x, hex.y, buildingTypeNames[i]);
 				});
-			}
+			}*/
+		if (hex.owner != null && hex.type > 0) {
+			var div = document.createElement("div"),
+			img = document.createElement("img");
+			div.className = "row";
+			img.src = "images/addCityIcon.png";
+			buildingBuildMenu.appendChild(div);
+			div.appendChild(img);
+			img.addEventListener("click", function() {
+				players[0].addBuilding(hex.x, hex.y, "City");
+			});
+			ctxmenuAddIcons(buildingTypeNames, buildingBuildMenu, true, hex);
+			ctxmenuAddIcons(airUnitTypeNames, airUnitBuildMenu, false, hex);
+			ctxmenuAddIcons(landUnitTypeNames, unitBuildMenu, false, hex);
+		}
+		if (hex.type == 0 && hex.adjacentToLand(true)) {
+			ctxmenuAddIcons(seaUnitTypeNames, unitBuildMenu, false, hex);
 		}
 		return false;
 	},false);
@@ -1569,7 +1626,6 @@
 			for(let y = 0; y < mapSize; y++)
 				map[x][y].draw();
 		}
-
 		let pt = t.transformedPoint(mouse.x, mouse.y);
 		Hex.round(pt.x, pt.y).draw("outline");
 		pt = t.transformedPoint(width / 2, height / 2);
@@ -1675,8 +1731,8 @@
 			new Unit("Battleship", players[0]),
 			new Unit("Fighter", players[0]),
 			new Unit("Bomber", players[0])];
-		map[0][1].cities = 3;
-		map[0][1].mines = 1;
+		map[0][1].cities = 8;
+		map[0][1].mines = 0;
 		map[0][1].oilRigs = 1;
 		map[0][1].owner = players[0];
 		players[0].tileList = [map[0][1]];
