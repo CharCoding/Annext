@@ -839,7 +839,6 @@
 						borders.push(i);
 					}
 				}
-				// borders.push(this.owner.color); // BUG: this.owner.color doesn't actually give the material design colors.
 				borders.push(this.owner.hexColor); // quick fix
 			}
 			color = color || this.color;
@@ -877,8 +876,9 @@
 			buildings = ["mines", "oilRigs", "uraniumMines", "uraniumRefineries"],
 			icons = [iconSet + "Mine", iconSet + "OilRig", iconSet + "UraniumMine", iconSet + "UraniumRefinery"];
 			if (this.cities > 0) {
-				t.fillStyle = this.owner.color;
+				t.fillStyle = this.owner.hexColor;
 				t.strokeStyle = "black";
+				t.lineWidth = 1;
 				t.beginPath();
 				t.arc(x, y, r / 4.5, 0, Math.PI * 2);
 				t.stroke();
@@ -913,8 +913,9 @@
 				t.lineWidth = 1;
 				t.strokeStyle = "#ffffff";
 				t.stroke();
-				t.lineWidth = 2;
+				t.lineWidth = 1;
 			} else {
+				t.lineWidth = 1;
 				t.fillStyle = color;
 				t.fill();
 			}
@@ -1479,53 +1480,6 @@
 		ctxmenu.style.left = evt.pageX + "px";
 		ctxmenu.style.top = evt.pageY + "px";
 		economymenu.style.display = "inline";
-		/*if (hex.type == 0 && hex.adjacentToLand(true)) {
-			for (let i = 0; i < seaUnitTypeNames.length; i++) {
-				var div = document.createElement("div"),
-				img = document.createElement("img");
-				div.className = "row";
-				img.src = "images/" + iconSet + seaUnitTypeNames[i] + ".png";
-				unitBuildMenu.appendChild(div);
-				div.appendChild(img);
-				img.addEventListener("click", function() {
-					players[0].addUnit(hex.x, hex.y, seaUnitTypeNames[i]);
-				});
-			}
-		}
-		if (hex.owner != null && hex.type > 0) { //horrible copy-paste code incoming!
-			for (let i = 0; i < landUnitTypeNames.length; i++) {
-				var div = document.createElement("div"),
-				img = document.createElement("img");
-				div.className = "row";
-				img.src = "images/" + iconSet + landUnitTypeNames[i] + ".png";
-				unitBuildMenu.appendChild(div);
-				div.appendChild(img);
-				img.addEventListener("click", function() {
-					players[0].addUnit(hex.x, hex.y, landUnitTypeNames[i]);
-				});
-			}
-			for (let i = 0; i < airUnitTypeNames.length; i++) {
-				var div = document.createElement("div"),
-				img = document.createElement("img");
-				div.className = "row";
-				img.src = "images/" + iconSet + airUnitTypeNames[i] + ".png";
-				airUnitBuildMenu.appendChild(div);
-				div.appendChild(img);
-				img.addEventListener("click", function() {
-					players[0].addUnit(hex.x, hex.y, airUnitTypeNames[i]);
-				});
-			}
-			for (let i = 0; i < buildingTypeNames.length; i++) {
-				var div = document.createElement("div"),
-				img = document.createElement("img");
-				div.className = "row";
-				img.src = "images/" + iconSet + buildingTypeNames[i] + ".png";
-				buildingBuildMenu.appendChild(div);
-				div.appendChild(img);
-				img.addEventListener("click", function() {
-					players[0].addBuilding(hex.x, hex.y, buildingTypeNames[i]);
-				});
-			}*/
 		if (hex.owner != null && hex.type > 0) {
 			var div = document.createElement("div"),
 			img = document.createElement("img");
