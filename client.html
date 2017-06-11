@@ -688,6 +688,15 @@
 			this.units = [];
 			this.refreshMoves();
 		},
+		selectAllFromTile : function(hex) {
+			this.clear();
+			this.tile = hex;
+			for (let i = 0; i < this.tile.units.length; i++) {
+				this.tile.units[i].selected = true;
+				this.units.push(this.tile.units[i]);
+			}
+			this.refreshMoves();
+		},
 		refreshMoves : function() {
 			if (this.units.length === 0) {
 				this.canMoveTo = [];
@@ -806,9 +815,9 @@
 				if (this.neighbors[i].type != 0) {
 					if (requirePlayerTile && this.neighbors[i].owner == players[0]) {
 						return true;
-					} else if (requirePlayerTile) {
-						return false;
-					} else return true;
+					} else if (!requirePlayerTile) {
+						return true;
+					}
 				}
 			}
 		}
@@ -841,11 +850,10 @@
 				}
 				borders.push(this.owner.hexColor); // quick fix
 			}
-			color = color || this.color;
-			if (selected.canMoveTo.indexOf(this) != -1) {
+			if (selected.canMoveTo.indexOf(this) != -1 && color != "outline") {
 				color = getColorFromScale(colors[this.type], "#000000", 0.25);
 			}
-			// solution #2: just paint 4 copies of the original map... (INEFFICIENCY UGHH)
+			color = color || this.color;
 			if (useInfiniteScroll) {
 				this.renderWhere = [[0, 0], [-Hshift * 2, 0], [-Hshift, -Vshift], [-Hshift, Vshift]];
 			} else this.renderWhere = [[0,0]];
@@ -1032,6 +1040,7 @@
 				}
 			}
 			selected.clear();
+			if (selectAll) selected.selectAllFromTile(this);
 			/*for (let i in this.hexDisp) {
 				if (hexCoords[0] == this.hexDisp[i][0] && hexCoords[1] == this.hexDisp[i][1] && this[i] > 0) {
 					//IN CASE BUILDINGS NEED TO DO SOMETHING ON CLICK, UNCOMMENT AND ADD SOMETHING HERE
