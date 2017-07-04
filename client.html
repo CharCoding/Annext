@@ -216,7 +216,9 @@
 	</script>
 </head>
 <body>
-	<div id="imageSources" style="display:none;"></div>
+	<div id="imageSources" style="display:none;">
+		<img id="spritesheet"></img>
+	</div>
 	<div id="home">
 		<h1 class="display">Anne<img id="x" src="./images/x.png" width="69" height="60" alt="x" />t</h1>
 		<h4 class="display">Next Level World Domination</h4>
@@ -268,20 +270,6 @@
 							<div class="col s3" id="unitBuildMenu"></div>
 							<div class="col s3" id="airUnitBuildMenu"></div>
 						</div>
-						<!--<a style="width: 100%;" class="waves-effect waves-teal grey lighten-4 btn-flat" id="menuBtnCity">
-							+ City</a> <br>
-						<a style="width: 100%;" class="waves-effect waves-teal grey lighten-4 btn-flat" id="menuBtnMine">
-							+ Mine</a> <br>
-						<a style="width: 100%;" class="waves-effect waves-teal grey lighten-4 btn-flat" id="menuBtnOilRig">
-							+ Oil Rig</a> <br> <br>
-						<a style="width: 100%;" class="waves-effect waves-red grey lighten-4 btn-flat" id="menuBtnCity">
-							+ Infantry</a> <br>
-						<a style="width: 100%;" class="waves-effect waves-red grey lighten-4 btn-flat" id="menuBtnMine">
-							+ Mechanized Infantry</a> <br>
-						<a style="width: 100%;" class="waves-effect waves-red grey lighten-4 btn-flat" id="menuBtnOilRig">
-							+ Artillery</a> <br>
-						<a style="width: 100%;" class="waves-effect waves-red grey lighten-4 btn-flat" id="menuBtnOilRig">
-							+ Tank</a> <br> <br>-->
 					</div>
 					<div id="militarymenu">
 
@@ -470,8 +458,8 @@
 			 <h4>Settings</h4>
 			 <div class="input-field col s12">
 				<select id="settingsIconSelect">
-					<option value="icon" onclick="loadIconSet('icon')">Default</option>
-					<option value="NATO" onclick="loadIconSet('NATO')">NATO Icons</option>
+					<option value="icon" onclick="loadIconSet('icons_default')">Default</option>
+					<option value="NATO" onclick="">NATO Icons</option>
 				</select>
 				<label>ICON SET</label>
 			</div>
@@ -544,6 +532,10 @@
 			opacity: .5,
 		});
 		$('#settingsIconSelect').on('change', function(evt) {
+			if (evt.target.innerHTML = "NATO Icons") { //TEMPORARY - remove once NATO icons are updated
+				alert('The creator of the NATO icon set has not yet updated it to support the latest version of Annext');
+				return;
+			}
 			loadIconSet(evt.target.value);
 		});
 		$('#settingsInvertZoom').on('change', function(evt) {
@@ -583,10 +575,13 @@
 	unitTypeNames = ["Infantry", "MechanizedInfantry", "Tank", "Artillery",
 		"Destroyer", "Cruiser", "Battleship", "Submarine", "AircraftCarrier", "Transport",
 		"Fighter", "Bomber"/*, "Helicopter"*/],
-	landUnitTypeNames = ["Infantry", "MechanizedInfantry", "Tank", "Artillery"],
+	landUnitTypeNames = ["Infantry", "Artillery", "MechanizedInfantry", "Tank"],
 	airUnitTypeNames = ["Fighter", "Bomber"],
-	seaUnitTypeNames = ["Destroyer", "Cruiser", "Battleship", "Submarine", "AircraftCarrier", "Transport"],
-	buildingTypeNames = ["Mine", "OilRig", "UraniumMine", "UraniumRefinery"],
+	seaUnitTypeNames = ["AircraftCarrier", "Battleship", "Cruiser", "Destroyer", "Submarine", "Transport"],
+	missileTypeNames = ["MRBM", "ICBM"],
+	buildingTypeNames = ["OilRig", "Mine", "UraniumMine", "UraniumRefinery"],
+	resourceTypeNames = ["Oil", "Iron", "Uranium"],
+	typeCategories = [seaUnitTypeNames, landUnitTypeNames, airUnitTypeNames, missileTypeNames, buildingTypeNames, resourceTypeNames], //for finding icon in sprite
 	terrainTypeNames = ["sea", "plains", "desert", "mountains"],
 	useInfiniteScroll = false,
 	materialResourceIcons = { //material icons used for each resource. Do they make sense? No.
@@ -619,8 +614,8 @@
 		}
 	}
 	function loadIconSet(setName) {
-		iconSet = setName;
-		while (imageSources.firstChild) {
+		spritesheet.src = "images/" + setName + ".png";
+		/*while (imageSources.firstChild) {
 			imageSources.removeChild(imageSources.firstChild);
 		}
 		for (let i = 0; i < unitTypeNames.length; i++) {
@@ -634,9 +629,10 @@
 			img.src = "images/" + setName + buildingTypeNames[i] + ".png";
 			img.id = setName + buildingTypeNames[i];
 			imageSources.appendChild(img);
-		}
+		}*/
+
 	}
-	loadIconSet(iconSet);
+	loadIconSet("icons_default");
 	function getColorFromScale(start, end, pos) {
 		pos = Math.max(0, Math.min(1, pos));
 	  var re = new RegExp(/^#(?:[0-9a-f]{3}){1,2}$/i); //thanks Google
@@ -882,7 +878,7 @@
 		drawBuildings() {
 			var [x, y] = hexCoordToPoint(this.x, this.y),
 			buildings = ["mines", "oilRigs", "uraniumMines", "uraniumRefineries"],
-			icons = [iconSet + "Mine", iconSet + "OilRig", iconSet + "UraniumMine", iconSet + "UraniumRefinery"];
+			bIcons = ["Mine", "OilRig", "UraniumMine", "UraniumRefinery"];
 			if (this.cities > 0) {
 				t.fillStyle = this.owner.hexColor;
 				t.strokeStyle = "black";
@@ -900,7 +896,10 @@
 				if (this[buildings[i]] > 0) {
 					var dp = this.interiorPoint(this.hexDisp[buildings[i]][0], this.hexDisp[buildings[i]][1], 3);
 					for (let j = 0; j < this.renderWhere.length; j++) {
-						t.drawImage(document.getElementById(icons[i]), dp[0] + this.renderWhere[j][0] - iconSize / 2, dp[1] + this.renderWhere[j][1] - iconSize / 2, iconSize, iconSize);
+						//t.drawImage(document.getElementById(icons[i]), dp[0] + this.renderWhere[j][0] - iconSize / 2, dp[1] + this.renderWhere[j][1] - iconSize / 2, iconSize, iconSize);
+						t.drawImage(spritesheet, 200, buildingTypeNames.indexOf(bIcons[i]) * 50,
+							50, 50, dp[0] + this.renderWhere[j][0] - iconSize / 2,
+							dp[1] + this.renderWhere[j][1] - iconSize / 2, iconSize, iconSize);
 					}
 					//todo - add building number tracking (or can there be more than one per tile?)
 				}
@@ -1212,6 +1211,7 @@
 					this.canMove = [false, true, true, true]; //[0] -> sea, [1] -> land, [2] -> desert, etc.
 					this.isBase = [false, true, true, true]; //can unit stop and stay there without dying
 					this.hexDisp = [-1, -1]; //where in a tile the unit is displayed (see the intrahex position helper in the images folder)
+					this.category = 1; //0->sea; 1->land; 2->air; 3->missile (used when drawing unit)
 					break;
 				case "MechanizedInfantry":
 					this.move = 2;
@@ -1220,6 +1220,7 @@
 					this.canMove = [false, true, true, true];
 					this.isBase = [false, true, true, true];
 					this.hexDisp = [2, -1];
+					this.category = 1;
 					break;
 				case "Artillery":
 					this.move = 2;
@@ -1228,6 +1229,7 @@
 					this.canMove = [false, true, true, true];
 					this.isBase = [false, true, true, true];
 					this.hexDisp = [-2, 1]
+					this.category = 1;
 					break;
 				case "Tank":
 					this.move = 2;
@@ -1236,6 +1238,7 @@
 					this.canMove = [false, true, true, true];
 					this.isBase = [false, true, true, true];
 					this.hexDisp = [1, 1]
+					this.category = 1;
 					break;
 				case "Destroyer":
 					this.move = 3;
@@ -1244,6 +1247,7 @@
 					this.canMove = [true, false, false, false];
 					this.isBase = [true, false, false, false];
 					this.hexDisp = [0, -1];
+					this.category = 0;
 					break;
 				case "Cruiser":
 					this.move = 3;
@@ -1252,6 +1256,7 @@
 					this.canMove = [true, false, false, false];
 					this.isBase = [true, false, false, false];
 					this.hexDisp = [1, 0];
+					this.category = 0;
 					break;
 				case "Battleship":
 					this.move = 3;
@@ -1260,6 +1265,7 @@
 					this.canMove = [true, false, false, false];
 					this.isBase = [true, false, false, false];
 					this.hexDisp = [-1, 0];
+					this.category = 0;
 					break;
 				case "AircraftCarrier":
 					this.move = 3;
@@ -1270,6 +1276,7 @@
 					this.canMove = [true, false, false, false];
 					this.isBase = [true, false, false, false];
 					this.hexDisp = [0, 0];
+					this.category = 0;
 					break;
 				case "Submarine":
 					this.move = 3;
@@ -1278,6 +1285,7 @@
 					this.canMove = [true, false, false, false];
 					this.isBase = [true, false, false, false];
 					this.hexDisp = [-1, 2];
+					this.category = 0;
 					break;
 				case "Transport":
 					this.move = 3;
@@ -1287,6 +1295,7 @@
 					this.canMove = [true, false, false, false];
 					this.isBase = [true, false, false, false];
 					this.hexDisp = [1, -1];
+					this.category = 0;
 					break;
 				case "Fighter":
 					this.move = 8;
@@ -1297,6 +1306,7 @@
 					this.isBase = [false, false, false, false];
 					this.isPlane = true;
 					this.hexDisp = [0, -2];
+					this.category = 2;
 					break;
 				case "Bomber":
 					this.move = 8;
@@ -1307,6 +1317,7 @@
 					this.isBase = [false, false, false, false];
 					this.isPlane = true;
 					this.hexDisp = [2, -2];
+					this.category = 2;
 					break;
 				case "Helicopter":
 					this.move = 3;
@@ -1315,6 +1326,7 @@
 					this.canMove = [true, true, true, true];
 					this.isBase = [false, true, true, false];
 					this.hexDisp = [1, -2];
+					this.category = 2;
 					break;
 				case "MRBM":
 					this.move = 6;
@@ -1323,6 +1335,7 @@
 					this.canMove = [true, true, true, true];
 					this.isBase = [false, false, false, false];
 					this.hexDisp = [-2, 2];
+					this.category = 3;
 					break;
 				case "ICBM":
 					this.move = 24;
@@ -1331,6 +1344,7 @@
 					this.canMove = [true, true, true, true];
 					this.isBase = [false, false, false, false];
 					this.hexDisp = [0, 2];
+					this.category = 3;
 					break;
 			}
 			this.movesLeft = this.move;
@@ -1384,7 +1398,8 @@
 				}
 				t.fillRect(x - size / 2, y - size / 2, size, size);
 			}
-			t.drawImage(this.icon(), x - size / 2, y - size / 2, size, size);
+			t.drawImage(spritesheet, this.category * 50, typeCategories[this.category].indexOf(this.typeName) * 50,
+				50, 50, x - size / 2, y - size / 2, size, size);
 			t.fillStyle = "#fff";
 			t.font = "3px sans-serif";
 			t.textAlign = "center";
@@ -1615,7 +1630,7 @@
 		var borderLand = 0.4,
 		borderDesert = 0.6,
 		borderMountain = 0.7,
-		levelSizes = [24, 12, 6, 3], //size of (square) level tiles
+		levelSizes = [26, 12, 6, 3], //size of (square) level tiles
 		levelNumbers = [1000, 1000, 1000, 1000], //number of tiles for each level that will need to be generated to fill map (optimize later)
 		levels = [], //values for each level
 		levelMultipliers = [0.1, 0.2, 0.3, 0.2, 0.2]; //weights assigned to sum of each level (should add to 1)
