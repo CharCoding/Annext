@@ -264,15 +264,14 @@
 		<div id="map" class="col s12 tabcontent">
 			<div id="ctxmenu" class="card">
 				<div id="card-content">
+					<span class="card-title" id="ctxmenutitle">Sector ??</span>
 					<div id="economymenu">
 						<div class="row" id="economymenuContainer">
 							<div class="col s3" id="buildingBuildMenu"></div>
 							<div class="col s3" id="unitBuildMenu"></div>
 							<div class="col s3" id="airUnitBuildMenu"></div>
+							<div class="col s3" id="resourceBuildMenu"></div>
 						</div>
-					</div>
-					<div id="militarymenu">
-
 					</div>
 				</div>
 			</div>
@@ -289,6 +288,7 @@
 							</div>
 							<div class="col s3">
 								<p id="info-development"><i class="material-icons">receipt</i>0/0</p>
+								<p id="reconstituted-cities"></p>
 							</div>
 							<div class="col s2">
 								<p id="info-steel"><i class="material-icons">view_week</i>0</p>
@@ -590,6 +590,7 @@
 		oil : "invert_colors",
 		uranium : ""
 	},
+	defaultResourceQuantity = Infinity,
 	resourceNames = ["development", "steel", "oil", "uranium"];
 	c.width = width;
 	c.height = height;
@@ -787,6 +788,9 @@
 			this.steel = 0; //resource amounts set during map gen
 			this.oil = 0;
 			this.uranium = 0;
+			this.steelSources = 0; //number of sources of each resource - determines how fast resource depletes
+			this.oilSources = 0;
+			this.uraniumSources = 0;
 			this.hexDisp = { //unit display locations specified in unit objects
 				mines : [-1, 1],
 				oilRigs : [0, 1],
@@ -821,6 +825,7 @@
 			}
 		}
 		hexesWithinDist(n, moveBiomes) {
+			if (moveBiomes == undefined) moveBiomes = [1, 1, 1, 1];
 			var canGo = [this],
 			fringes = [[this]];
 	    for (let i = 1; i <= n; i++) {
@@ -903,7 +908,9 @@
 							50, 50, dp[0] + this.renderWhere[j][0] - iconSize / 2,
 							dp[1] + this.renderWhere[j][1] - iconSize / 2, iconSize, iconSize);
 					}
-					//todo - add building number tracking (or can there be more than one per tile?)
+					if (this[buildings[i]] > 1) {
+						this.addText(this.hexDisp[buildings[i]][0], this.hexDisp[buildings[i]][1], this[buildings[i]]);
+					}
 				}
 			}
 		}
@@ -918,7 +925,19 @@
 						50, 50, dp[0] + this.renderWhere[j][0] - iconSize / 2,
 						dp[1] + this.renderWhere[j][1] - iconSize / 2, iconSize, iconSize);
 					}
+					if (this[resources[i] + "Sources"] > 1) {
+						this.addText(this.hexDisp[resources[i]][0], this.hexDisp[resources[i]][1], this[resources[i] + "Sources"]);
+					}
 				}
+			}
+		}
+		addText(ix, iy, txt) {
+			var point = this.interiorPoint(ix, iy, 3);
+			t.fillStyle = "#fff";
+			t.font = "2px sans-serif";
+			t.textAlign = "center";
+			for (let j = 0; j < this.renderWhere.length; j++) {
+				t.fillText(txt, point[0] + this.renderWhere[j][0] + 2, point[1] + this.renderWhere[j][1]);
 			}
 		}
 		static render(x, y, color, borders) {
@@ -1033,14 +1052,22 @@
 				steel : this.mines,
 				uranium : this.uraniumMines
 			}
+			this.developmentSources = this.cities; //to avoid having to program exception for cities below
 			for (let i in production) {
-				this[i] -= production[i];
+				let increment = Math.min(this[i + "Sources"], production[i])
+				this[i] -= increment;
+				production[i] = increment;
 				if (this[i] < 0) {
 					production[i] += this[i];
 					this[i] = 0;
 				}
 			}
 			return production;
+		}
+		addResource(type, quantity) {
+			if (quantity == undefined) quantity = defaultResourceQuantity;
+			this[type] += quantity;
+			++this[type + "Sources"];
 		}
 		click(x, y, selectAll) {
 			var [tx, ty] = hexCoordToPoint(this.x, this.y),
@@ -1084,6 +1111,7 @@
 			this.tileList = [];
 			this.color = 'indigo'; // TEMPORARY, players should get color code from server.
 			this.hexColor = '#3f51b5'; // used by Hex.draw, (borders/units/buildings etc.)
+			this.reconstitutedCities = 0;
 		}
 		updateInfoBar() {
 			for (let i = 0; i < resourceNames.length; i++) {
@@ -1093,6 +1121,11 @@
 				if (resourceNames[i] == "development") {
 					document.getElementById("info-" + resourceNames[i]).innerHTML += "/" + this.totalCities();
 				}
+			}
+			if (this.reconstitutedCities > 0) {
+				document.getElementById("reconstituted-cities").innerHTML = "RCs: " + this.reconstitutedCities;
+			} else {
+				document.getElementById("reconstituted-cities").innerHTML = "";
 			}
 		}
 		totalCities() {
@@ -1110,21 +1143,29 @@
 			msg.scrollTop = msg.scrollHeight;
 			// webSocket majikz
 		}
-		addUnit(x, y, unitType){
+		reconstituteCity(x, y) {
+			--map[x][y].cities;
+			++this.reconstitutedCities;
+			this.updateInfoBar();
+		}
+		addUnit(x, y, unitType, build){
+			if (build == undefined) build = true; //build = build || true;
 			let hex = map[x][y],
 			unit = new Unit(unitType, this);
 			for (let i = 0; i < unit.cost.length; i++) {
 				if (this[resourceNames[i]] < unit.cost[i]) {
-					alert("ERROR 404: Resources not found. Please restart economy if problem persists.");
-					return;
+					return false;
 				}
 			}
+			if (!build) return true;
 			for (let i = 0; i < unit.cost.length; i++) this[resourceNames[i]] -= unit.cost[i];
 			this.updateInfoBar();
+			unit.movesLeft = 0;
 			map[x][y].units.push(unit);
 			// more webSocket majikz and map majikz
 		}
-		addBuilding(x, y, building){
+		addBuilding(x, y, building, build){
+			if (build == undefined) build = true;//build = build || true;
 			let hex = map[x][y], cost = [];
 			switch (building) {
 				case "Mine":
@@ -1145,10 +1186,10 @@
 			}
 			for (let i = 0; i < cost.length; i++) {
 				if (this[resourceNames[i]] < cost[i]) {
-					alert("ERROR 404: Resources not found. Pillage a few minor nations to get more.");
-					return;
+					return false;
 				}
 			}
+			if (!build) return true;
 			for (let i = 0; i < cost.length; i++) this[resourceNames[i]] -= cost[i];
 			switch (building) {
 				case "Mine":
@@ -1168,6 +1209,12 @@
 			}
 			this.updateInfoBar();
 			// even more webSocket majikz and map majikz
+		}
+		addResource(x, y, resourceType, build) {
+			if (build == undefined) build = true;
+			if (this.reconstitutedCities < 2) return false;
+			if (!build) return true;
+			map[x][y].addResource(resourceType);
 		}
 		getTileResources() {
 			for (let i = 0; i < this.tileList.length; i++) {
@@ -1191,9 +1238,17 @@
 		}
 		nextTurn() {
 			this.development = 0;
+			this.reconstitutedCities = 0;
 			this.getTileResources();
-			this.updateInfoBar();
 			this.updateOwnedTiles();
+			this.updateInfoBar();
+		}
+		canAfford(dev, oil, steel, uranium) {
+			if (dev > this.development) return false;
+			if (oil > this.oil) return false;
+			if (steel > this.steel) return false;
+			if (uranium > this.uranium) return false;
+			return true;
 		}
 	}
 	function getAbbr(str){
@@ -1442,6 +1497,7 @@
 		removeAllChildNodes(airUnitBuildMenu);
 		removeAllChildNodes(buildingBuildMenu);
 		removeAllChildNodes(unitBuildMenu);
+		removeAllChildNodes(resourceBuildMenu);
 	}
 	function mod(a, b){ return a - Math.floor(a / b) * b; }
 	c.addEventListener('mousedown',function(evt){
@@ -1492,7 +1548,7 @@
 			}
 		}
 	},false);
-	function ctxmenuAddIcons(typeNames, container, isBuilding, hex, category) {
+	function ctxmenuAddIcons(typeNames, container, type, hex, category, x, y) {
 		for (let i = 0; i < typeNames.length; i++) {
 			var div = document.createElement("div"),
 			cnv = document.createElement("canvas");
@@ -1502,46 +1558,102 @@
 			cnv.getContext("2d").drawImage(spritesheet, category * 50, typeCategories[category].indexOf(typeNames[i]) * 50, 50, 50, 0, 0, 50, 50);
 			container.appendChild(div);
 			div.appendChild(cnv);
-			if (isBuilding) {
+			if (type === "building") {
 				cnv.addEventListener("click", function() {
 					players[0].addBuilding(hex.x, hex.y, typeNames[i]);
+					resetCtxMenu();
+					createCtxMenu(x, y, hex);
 					moved = true;
 				});
-			} else {
+			} else if (type === "unit") {
 				cnv.addEventListener("click", function() {
 					players[0].addUnit(hex.x, hex.y, typeNames[i]);
+					resetCtxMenu();
+					createCtxMenu(x, y, hex);
+					moved = true;
+				});
+			} else if (type === "resource") {
+				cnv.addEventListener("click", function() {
+					players[0].addResource(hex.x, hex.y, typeNames[i]);
+					resetCtxMenu();
+					createCtxMenu(x, y, hex);
+					moved = true;
+				})
+			}
+		}
+	}
+	function getAffordableItems(arr, x, y, type) {
+		let r = [];
+		for (let i = 0; i < arr.length; i++) {
+			if (type == "building") {
+				if (players[0].addBuilding(x, y, arr[i], false)) r.push(arr[i]);
+			} else if (type == "unit") {
+				if (players[0].addUnit(x, y, arr[i], false)) r.push(arr[i]);
+			} else if (type == "resource") {
+				if (players[0].addResource(x, y, arr[i], false)) r.push(arr[i]);
+			}
+		}
+		return r;
+	}
+	function createCtxMenu(x, y, hex) {
+		ctxmenu.style.display = "inline";
+		ctxmenu.style.left = x;
+		ctxmenu.style.top = y;
+		ctxmenutitle.innerHTML = "Sector " + "ABCDEFGHIJKLMNOPQRSTUVWXYZ"[hex.y] + (hex.x + 1);
+		economymenu.style.display = "inline";
+		if (hex.owner != null && hex.type > 0) {
+			if (players[0].addBuilding(hex.x, hex.y, "City", false)) {
+				var div = document.createElement("div"),
+				img = document.createElement("img");
+				div.className = "row";
+				img.src = "images/addCityIcon.png";
+				buildingBuildMenu.appendChild(div);
+				div.appendChild(img);
+				img.addEventListener("click", function() {
+					players[0].addBuilding(hex.x, hex.y, "City");
+					resetCtxMenu();
+					createCtxMenu(x, y, hex);
 					moved = true;
 				});
 			}
+			if (hex.cities > 0) { //copy-paste code incoming!
+				var div = document.createElement("div"),
+				img = document.createElement("img");
+				div.className = "row";
+				img.src = "images/removeCityIcon.png";
+				buildingBuildMenu.appendChild(div);
+				div.appendChild(img);
+				img.addEventListener("click", function() {
+					players[0].reconstituteCity(hex.x, hex.y);
+					resetCtxMenu();
+					createCtxMenu(x, y, hex);
+					moved = true;
+				});
+			}
+			ctxmenuAddIcons(getAffordableItems(buildingTypeNames, hex.x, hex.y, "building"), buildingBuildMenu, "building", hex, 4, x, y);
+			ctxmenuAddIcons(getAffordableItems(airUnitTypeNames, hex.x, hex.y, "unit"), airUnitBuildMenu, "unit", hex, 2, x, y);
+			ctxmenuAddIcons(getAffordableItems(landUnitTypeNames, hex.x, hex.y, "unit"), unitBuildMenu, "unit", hex, 1, x, y);
+			let resources = [];
+			if (hex.steel == 0) {
+				for (let i = 0; i < hex.neighbors.length; i++) {
+					if (resources.indexOf("steel") == -1 && hex.neighbors[i].steel > 0) resources.push("steel");
+				}
+			}
+			if (hex.oil > 0) resources.push("oil");
+			ctxmenuAddIcons(getAffordableItems(resources, hex.x, hex.y, "resource"), resourceBuildMenu, "resource", hex, 5, x, y);
+		}
+		if (hex.type == 0 && hex.adjacentToLand(true)) {
+			ctxmenuAddIcons(getAffordableItems(seaUnitTypeNames, hex.x, hex.y, "unit"), unitBuildMenu, "unit", hex, 0, x, y);
 		}
 	}
 	c.addEventListener('contextmenu',function(evt){
 		evt.preventDefault();
 		resetCtxMenu();
 		var pt = t.transformedPoint(mouse.x, mouse.y),
-		hex = Hex.round(pt.x, pt.y);
-		ctxmenu.style.display = "inline";
-		ctxmenu.style.left = evt.pageX + "px";
-		ctxmenu.style.top = evt.pageY + "px";
-		economymenu.style.display = "inline";
-		if (hex.owner != null && hex.type > 0) {
-			var div = document.createElement("div"),
-			img = document.createElement("img");
-			div.className = "row";
-			img.src = "images/addCityIcon.png";
-			buildingBuildMenu.appendChild(div);
-			div.appendChild(img);
-			img.addEventListener("click", function() {
-				players[0].addBuilding(hex.x, hex.y, "City");
-				moved = true;
-			});
-			ctxmenuAddIcons(buildingTypeNames, buildingBuildMenu, true, hex, 4);
-			ctxmenuAddIcons(airUnitTypeNames, airUnitBuildMenu, false, hex, 2);
-			ctxmenuAddIcons(landUnitTypeNames, unitBuildMenu, false, hex, 1);
-		}
-		if (hex.type == 0 && hex.adjacentToLand(true)) {
-			ctxmenuAddIcons(seaUnitTypeNames, unitBuildMenu, false, hex, 0);
-		}
+		hex = Hex.round(pt.x, pt.y),
+		x = evt.pageX + "px",
+		y = evt.pageY + "px";
+		createCtxMenu(x, y, hex);
 		return false;
 	},false);
 	chatInput.addEventListener('keydown',function(evt){
@@ -1611,7 +1723,7 @@
 		if(delta <= interval) return;
 		if(keys[68] - keys[65] || keys[83] - keys[87] || keys[38] - keys[40]) {
 			moved = true;
-			t.translate((keys[65] - keys[68]) * 2 * t.getTransform().a, (keys[87] - keys[83]) * 2 * t.getTransform().a);
+			t.translate((keys[65] - keys[68]) * 5 / t.getTransform().a, (keys[87] - keys[83]) * 5 / t.getTransform().a);
 			zoom(keys[38] - keys[40]);
 		}
 		if(!moved) return;
@@ -1656,7 +1768,8 @@
 			let x = Math.floor(prng.nextIn(map.length)),
 			y = Math.floor(prng.nextIn(map.length));
 			if (allowedTerrainTypes[map[x][y].type] == 1 && map[x][y][resourceName] == 0) {
-				map[x][y][resourceName] = Infinity;
+				map[x][y][resourceName] = defaultResourceQuantity;
+				++map[x][y][resourceName + "Sources"];
 			}
 		}
 	}
@@ -1704,7 +1817,7 @@
 		for (let x = 0; x < map.length; x++) {
 			for (let y = 0; y < map.length; y++) {
 				map[x][y].oil = 0;
-				map[x][y].iron = 0;
+				map[x][y].steel = 0;
 				map[x][y].uranium = 0;
 			}
 		}
@@ -1761,6 +1874,7 @@
 			let num = addLeadingZeros(parseInt(r[i], 36), 7),
 			x = parseInt(num.substr(0,2)), y = parseInt(num.substr(2,2)), val = parseInt(num.substr(4,3));
 			map[x][y][name] = val;
+			++map[x][y][name + "Sources"];
 		}
 	}
 	importMap("vkisfod,ewpm2oal,if376btp,ewofggbd,begwwf9x,1hd780k,ieydxy4w,3q64aakw,ihf6a9es,lxcvjbr4,4dulwetd,282dc,in0fdzkl,noi2nuop,imw4jxgl,ipbr4fv9,4ecbzur5,ikvkwfa7,15ft74cpp,zdbmp3qh,12ga122vp|asv,dvz,288v,290n,d4zr,f2fr,hguv,lpmv,lvt3,nmb3,10nfz,14t4v,14zb3|1jj,27h3,2cvj,4bv3,4i1b,6h0v,6ikf,8t4n,8vfz,902n,d1wn,jpvj,lo3b,nt93,rwmn,s9qv,u2k7,yhif,10h9r,10mo7,10nfz,10suf,12mfj,130bj,1313b,14rlb,14sd3,155hb,15693,1793j,17an3,17bev|6nyv,rxef,14sd3", 21);
@@ -1792,8 +1906,8 @@
 			new Unit("Fighter", players[0]),
 			new Unit("Bomber", players[0])];
 		map[0][1].cities = 8;
-		map[0][1].mines = 0;
-		map[0][1].oilRigs = 1;
+		map[0][1].mines = 1;
+		map[0][1].oilRigs = 0;
 		map[0][1].owner = players[0];
 		players[0].tileList = [map[0][1]];
 		players[0].updateInfoBar();
