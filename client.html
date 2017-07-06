@@ -153,6 +153,16 @@
 		display: none;
 		z-index: 99;
 	}
+	#missileLaunchButton {
+		position: absolute;
+		top: 0%;
+		left: 41%;
+		padding: 10px;
+		color: white;
+		width: 18%;
+		text-align: center;
+		display: none;
+	}
 	</style>
 	<script type="text/javascript">
 	(function(window,document) {
@@ -271,11 +281,13 @@
 							<div class="col s3" id="unitBuildMenu"></div>
 							<div class="col s3" id="airUnitBuildMenu"></div>
 							<div class="col s3" id="resourceBuildMenu"></div>
+							<div class="col s3" id="missileBuildMenu"></div>
 						</div>
 					</div>
 				</div>
 			</div>
 			<div class="row">
+				<a id="missileLaunchButton" class="waves-effect waves-light red" onclick="selected.confirmLaunch()">LAUNCH NUCLEAR WEAPONS</a>
 				<canvas id="c"></canvas>
 			</div>
 			<div class="row">
@@ -478,7 +490,16 @@
 		      Disabled
 		      <input type="checkbox">
 		      <span class="lever"></span>
-		      Enabled (WARNING: BETA)
+		      Enabled (WARNING: EXPERIMENTAL)
+		    </label>
+		  </div>
+			<p>Strategic map view (tiles colored with player color instead of terrain color when zoomed out):</p>
+			<div id="settingsStrategicMapView" class="switch">
+		    <label>
+		      Disabled
+		      <input type="checkbox">
+		      <span id="settingsStrategicMapViewLever" class="lever"></span>
+		      Enabled
 		    </label>
 		  </div>
 		 </div>
@@ -544,6 +565,9 @@
 		$('#settingsInfiniteScroll').on('change', function(evt) {
 			useInfiniteScroll = !useInfiniteScroll;
 		});
+		$('#settingsStrategicMapView').on('change', function(evt) {
+			enableStrategicMapView = !enableStrategicMapView;
+		});
 		$('#nextTurnCheckbox').on('change', function(evt) {
 			nextTurnCheckbox.checked = !nextTurnCheckbox.checked;
 			gameState.nextTurn(); //once server functionality exists add check for all other players having moved
@@ -571,19 +595,21 @@
 	keys = new Array(100).fill(0), timer,  mapSize = 25, moved = true,
 	zoomDirection = 1,
 	iconSize = 5,
+	enableStrategicMapView = true,
+	useInfiniteScroll = false,
 	iconSet = "icon",
 	unitTypeNames = ["Infantry", "MechanizedInfantry", "Tank", "Artillery",
 		"Destroyer", "Cruiser", "Battleship", "Submarine", "AircraftCarrier", "Transport",
-		"Fighter", "Bomber"/*, "Helicopter"*/],
+		"Fighter", "Bomber", "MRBM", "ICBM", "MRBMlaunched", "ICBMlaunched"/*, "Helicopter"*/],
 	landUnitTypeNames = ["Infantry", "Artillery", "MechanizedInfantry", "Tank"],
 	airUnitTypeNames = ["Fighter", "Bomber"],
 	seaUnitTypeNames = ["AircraftCarrier", "Battleship", "Cruiser", "Destroyer", "Submarine", "Transport"],
 	missileTypeNames = ["MRBM", "ICBM"],
+	launchedMissileTypeNames = ["MRBMlaunched", "ICBMlaunched"],
 	buildingTypeNames = ["OilRig", "Mine", "UraniumMine", "UraniumRefinery"],
 	resourceTypeNames = ["oil", "steel", "uranium"],
-	typeCategories = [seaUnitTypeNames, landUnitTypeNames, airUnitTypeNames, missileTypeNames, buildingTypeNames, resourceTypeNames], //for finding icon in sprite
+	typeCategories = [seaUnitTypeNames, landUnitTypeNames, airUnitTypeNames, missileTypeNames, launchedMissileTypeNames, buildingTypeNames, resourceTypeNames, launchedMissileTypeNames], //for finding icon in sprite
 	terrainTypeNames = ["sea", "plains", "desert", "mountains"],
-	useInfiniteScroll = false,
 	materialResourceIcons = { //material icons used for each resource. Do they make sense? No.
 		development : "receipt",
 		steel : "view_week",
@@ -600,6 +626,7 @@
 	map = new Array(mapSize), mouse = {
 		x: width / 2, y: height / 2, dragged: false, dragStart: null, scale: 1
 	}, players = [];
+	settingsStrategicMapViewLever.click();
 	trackTransforms(t);
 	historyGraph.width = width / 1.5; historyGraph.height = height / 1.5;
 	statsGraph.width = width / 2.5; statsGraph.height = height / 2;
@@ -614,25 +641,7 @@
 			el.removeChild(el.firstChild);
 		}
 	}
-	function loadIconSet(setName) {
-		spritesheet.src = "images/" + setName + ".png";
-		/*while (imageSources.firstChild) {
-			imageSources.removeChild(imageSources.firstChild);
-		}
-		for (let i = 0; i < unitTypeNames.length; i++) {
-			let img = document.createElement("img");
-			img.src = "images/" + setName + unitTypeNames[i] + ".png";
-			img.id = setName + unitTypeNames[i];
-			imageSources.appendChild(img);
-		}
-		for (let i = 0; i < buildingTypeNames.length; i++) {
-			let img = document.createElement("img");
-			img.src = "images/" + setName + buildingTypeNames[i] + ".png";
-			img.id = setName + buildingTypeNames[i];
-			imageSources.appendChild(img);
-		}*/
-
-	}
+	function loadIconSet(setName) {spritesheet.src = "images/" + setName + ".png";}
 	loadIconSet("icons_default");
 	function getColorFromScale(start, end, pos) {
 		pos = Math.max(0, Math.min(1, pos));
@@ -660,6 +669,18 @@
 	function pixelToHex(x, y) {
 		return [(x - 1.732 * y) / r / 3, (x + 1.732 * y) / r / 3];
 	}
+	function removeMultipleFromArrayByProp(arr, propName, propValue, propName2, propValue2) {
+		let removeIndexes = [];
+		for (let i = 0; i < arr.length; i++) {
+			if (arr[i][propName] == propValue && (arr[i][propName2] == propValue2 || propName2 == undefined)) {
+				removeIndexes.push(i);
+			}
+		}
+		for (let i = removeIndexes.length - 1; i >= 0; i--) {
+			arr.splice(removeIndexes[i], 1);
+		}
+		return arr;
+	}
 	var selected = {
 		units : [],
 		tile : {units : [], hexesWithinDist : function() {return [];}}, //avoid errors
@@ -673,12 +694,18 @@
 			for (let i = 0; i < selected.units.length; i++) {
 				selected.units[i].movesLeft -= selected.tile.distanceTo(hex.x, hex.y);
 			}
-			selected.clear();
-			if (selected.tile.owner) {
-				selected.tile.owner.updateOwnedTiles();
+			for (let i = selected.units.length - 1; i >= 0; i--) {
+				if (selected.units[i].typeName == "MRBMlaunched") {
+					hex.nuke();
+					selected.units.splice(i, 1);
+					hex.units.splice(hex.units.indexOf(selected.units[i]), 1);
+				}
 			}
+			selected.clear();
+			if (selected.tile.owner) selected.tile.owner.updateOwnedTiles();
 		},
 		clear : function() {
+			this.hideLaunchOption();
 			for (let i = 0; i < this.units.length; i++) {
 				this.units[i].selected = false;
 			}
@@ -727,6 +754,7 @@
 			return sum;
 		},
 		selectUnit : function(unit, hexx, hexy, selectAll) {
+			if (unit.category == 3) selected.showLaunchOption();
 			if (selected.tile.x == hexx && selected.tile.y == hexy) {
 				for (let i = 0; i < this.tile.units.length; i++) {
 					if (this.tile.units[i].typeName == unit.typeName && this.tile.units[i].selected == false) {
@@ -750,6 +778,26 @@
 				}
 			}
 			this.refreshMoves();
+		},
+		hideLaunchOption : function() {missileLaunchButton.style.display = "none";},
+		showLaunchOption : function() {missileLaunchButton.style.display = "inline";},
+		confirmLaunch : function() {
+			if (confirm("You are about to launch " + this.unitsOfType("ICBM") + " ICBMs and " + selected.unitsOfType("MRBM") + " MRBMs. Are you sure you wish to proceed?")) {
+				selected.launch();
+			} else alert("Nuclear war averted. For now.");
+		},
+		launch : function() {
+			let missileArray = [], launched = [];
+			for (let i = 0; i < this.units.length; i++) {
+				if (this.units[i].category == 3) missileArray.push(this.units[i]);
+			}
+			let owner = missileArray[0].owner;
+			removeMultipleFromArrayByProp(this.tile.units, "category", 3, "selected", true);
+			this.clear();
+			for (let i = 0; i < missileArray.length; i++) {
+				launched.push(new Unit(missileArray[i].typeName + "launched", owner));
+			}
+			selected.tile.units = selected.tile.units.concat(launched);
 		}
 	},
 	gameState = {
@@ -760,13 +808,22 @@
 			}
 			++gameState.turn;
 			infoCurrentTurn.innerHTML = "Turn " + gameState.turn;
+			let nukeList = [];
 			for (let x = 0; x < map.length; x++) {
-				for (let y = 0; y < map[x].length; y++) {
-					for (let i = 0; i < map[x][y].units.length; i++) {
+				for (let y = 0; y < map.length; y++) {
+					for (let i = map[x][y].units.length - 1; i >= 0; i--) {
 						map[x][y].units[i].movesLeft = map[x][y].units[i].move;
+						if (launchedMissileTypeNames.indexOf(map[x][y].units[i].typeName) != -1) {
+							--map[x][y].units[i].timeUntilDetonation;
+							if (map[x][y].units[i].timeUntilDetonation < 0) {
+								nukeList.push(map[x][y]);
+								map[x][y].units.splice(i, 1);
+							}
+						}
 					}
 				}
 			}
+			for (let i = 0; i < nukeList.length; i++) nukeList[i].nuke();
 		}
 	}
 	class Hex {
@@ -852,7 +909,15 @@
 						borders.push(i);
 					}
 				}
-				borders.push(this.owner.hexColor); // quick fix
+			}
+			if (enableStrategicMapView) {
+				if (this.owner != null) {
+					borders.push(this.owner.hexColor);
+				} else if (this.type == 0) {
+					borders.push("#000161")
+				} else borders.push("#d7d7d7");
+			} else if (this.owner) {
+				borders.push(this.owner.hexColor);
 			}
 			if (selected.canMoveTo.indexOf(this) != -1 && color != "outline") {
 				color = getColorFromScale(colors[this.type], "#000000", 0.25);
@@ -867,7 +932,9 @@
 		}
 		drawUnits() {
 			for (let i = 0; i < unitTypeNames.length; i++) {
-				let num = this.unitNumberFromType(unitTypeNames[i]);
+				let num = this.unitNumberFromType(unitTypeNames[i]),
+				isMissile = false;
+				if (unitTypeNames[i] == "MRBM" || unitTypeNames[i] == "ICBM") isMissile = true;
 				if (num !== 0) {
 					let unitObject;
 					for (let j = 0; j < this.units.length; j++) {
@@ -878,7 +945,7 @@
 						numSelected = selected.unitsOfType(unitTypeNames[i]);
 					}
 					for (let j = 0; j < this.renderWhere.length; j++) {
-						unitObject.render(coords[0] + this.renderWhere[j][0], coords[1] + this.renderWhere[j][1], num, numSelected);
+						unitObject.render(coords[0] + this.renderWhere[j][0], coords[1] + this.renderWhere[j][1], num, numSelected, isMissile);
 					}
 				}
 			}
@@ -904,7 +971,7 @@
 				if (this[buildings[i]] > 0) {
 					var dp = this.interiorPoint(this.hexDisp[buildings[i]][0], this.hexDisp[buildings[i]][1], 3);
 					for (let j = 0; j < this.renderWhere.length; j++) {
-						t.drawImage(spritesheet, 200, buildingTypeNames.indexOf(bIcons[i]) * 50,
+						t.drawImage(spritesheet, 250, buildingTypeNames.indexOf(bIcons[i]) * 50,
 							50, 50, dp[0] + this.renderWhere[j][0] - iconSize / 2,
 							dp[1] + this.renderWhere[j][1] - iconSize / 2, iconSize, iconSize);
 					}
@@ -921,7 +988,7 @@
 				if (this[resources[i]] > 0) {
 					var dp = this.interiorPoint(this.hexDisp[resources[i]][0], this.hexDisp[resources[i]][1], 3);
 					for (let j = 0; j < this.renderWhere.length; j++) {
-						t.drawImage(spritesheet, 250, resourceTypeNames.indexOf(resources[i]) * 50,
+						t.drawImage(spritesheet, 300, resourceTypeNames.indexOf(resources[i]) * 50,
 						50, 50, dp[0] + this.renderWhere[j][0] - iconSize / 2,
 						dp[1] + this.renderWhere[j][1] - iconSize / 2, iconSize, iconSize);
 					}
@@ -951,7 +1018,10 @@
 			t.lineTo(x - r / 2, y - r * .866);
 			t.lineTo(x + r / 2, y - r * .866);
 			t.closePath();
-			if(color == "outline") {
+			if (t.getTransform().a < 1 && enableStrategicMapView) {
+				t.fillStyle = borders[borders.length - 1];
+				t.fill();
+			} else if(color == "outline") {
 				t.lineWidth = 1;
 				t.strokeStyle = "#ffffff";
 				t.stroke();
@@ -969,7 +1039,6 @@
 				t.moveTo(x + Math.cos(Math.PI / 3 * ang) * r * 0.95, y - Math.sin(Math.PI / 3 * ang) * r * 0.95);
 				t.lineTo(x + Math.cos(Math.PI / 3 * (ang + 1)) * r * 0.95, y - Math.sin(Math.PI / 3 * (ang + 1)) * r * 0.95);
 				t.strokeStyle = borderColor;
-
 				t.stroke();
 			}
 		}
@@ -1094,6 +1163,34 @@
     	dy = 3/2 * y * r / n / 1.5;
 			return [dx + (this.x + this.y) * r * 1.5, dy + (this.y - this.x) * r * .866];
 		}
+		killUnitsWithProbability(prob, exempted) {
+			if (exempted == undefined) exempted = [];
+			for (let i = 0; i < this.units.length; i++) {
+				if (Math.random() > prob || exempted.indexOf(this.units[i].typeName) != -1) {
+					this.units[i].markedForDestruction = false;
+				} else this.units[i].markedForDestruction = true;
+			}
+			this.units = removeMultipleFromArrayByProp(this.units, "markedForDestruction", true);
+		}
+		nuke() { //this function is totally MAD
+				this.cities = Math.floor(this.cities / 3);
+				this.oil = 0;
+				this.oilSources = 0;
+				this.steel = 0;
+				this.steelSources = 0;
+				this.uranium = 0;
+				this.uraniumSources = 0;
+				this.mines = 0;
+				this.uraniumMines = 0;
+				this.oilRigs = 0;
+				this.uraniumRefineries = 0;
+				this.killUnitsWithProbability(0.4, launchedMissileTypeNames);
+				for (let i = 0; i < this.neighbors.length; i++) {
+					this.neighbors[i].cities = Math.floor(this.neighbors[i].cities / 1.5);
+					this.neighbors[i].killUnitsWithProbability(0.2);
+				}
+				moved = true;
+		}
 	}
 	class Player {
 		constructor(country){
@@ -1104,6 +1201,7 @@
 			this.oil = 75;
 			this.steel = 75;
 			this.uranium = 0;
+			this.enrichedUranium = 0;
 			this.buildings = 0;
 			this.landUnits = 0;
 			this.seaUnits = 0;
@@ -1122,6 +1220,7 @@
 					document.getElementById("info-" + resourceNames[i]).innerHTML += "/" + this.totalCities();
 				}
 			}
+			document.getElementById("info-uranium").innerHTML = '<img src="images/radioactive.png" width="24" height="24"></i>' + players[0].uranium;
 			if (this.reconstitutedCities > 0) {
 				document.getElementById("reconstituted-cities").innerHTML = "RCs: " + this.reconstitutedCities;
 			} else {
@@ -1214,7 +1313,9 @@
 			if (build == undefined) build = true;
 			if (this.reconstitutedCities < 2) return false;
 			if (!build) return true;
+			this.reconstitutedCities -= 2;
 			map[x][y].addResource(resourceType);
+			this.updateInfoBar();
 		}
 		getTileResources() {
 			for (let i = 0; i < this.tileList.length; i++) {
@@ -1400,22 +1501,42 @@
 					this.category = 2;
 					break;
 				case "MRBM":
-					this.move = 6;
+					this.move = 1;
 					this.cost = [8, 1, 1, 4];
 					this.weight = 2;
-					this.canMove = [true, true, true, true];
-					this.isBase = [false, false, false, false];
-					this.hexDisp = [-2, 2];
+					this.canMove = [false, true, true, true];
+					this.isBase = [false, true, true, true];
+					this.hexDisp = [-2, 0];
 					this.category = 3;
 					break;
-				case "ICBM":
-					this.move = 24;
-					this.cost = [10, 1, 4, 4];
-					this.weight = 2;
+				case "MRBMlaunched":
+					this.timeUntilDetonation = 0;
+					this.move = 6;
+					this.cost = [0, 0, 0, 0];
+					this.weight = 999;
 					this.canMove = [true, true, true, true];
 					this.isBase = [false, false, false, false];
-					this.hexDisp = [0, 2];
+					this.hexDisp = [-2, 0];
+					this.category = 4;
+					break;
+				case "ICBM":
+					this.move = 1;
+					this.cost = [10, 1, 4, 4];
+					this.weight = 12;
+					this.canMove = [false, true, true, true];
+					this.isBase = [false, true, true, true];
+					this.hexDisp = [2, 0];
 					this.category = 3;
+					break;
+				case "ICBMlaunched":
+					this.timeUntilDetonation = 1;
+					this.move = 12;
+					this.cost = [0, 0, 0, 0];
+					this.weight = 999;
+					this.canMove = [true, true, true, true];
+					this.isBase = [false, false, false, false];
+					this.hexDisp = [2, 0];
+					this.category = 4;
 					break;
 			}
 			this.movesLeft = this.move;
@@ -1452,10 +1573,10 @@
 		click(hexx, hexy, selectAll) {
 			selected.selectUnit(this, hexx, hexy, selectAll);
 		}
-		render(x, y, number, numSelected) {
+		render(x, y, number, numSelected, isMissile) { //DRAW UNITS
 			let size = iconSize;
 			t.fillStyle = this.color;
-			if (this.canMove[0] && iconSet == "icon") {
+			if (this.canMove[0] && iconSet == "icon" && !isMissile) {
 				t.lineWidth = 0.5;
 				t.strokeStyle = "transparent";
 				if (numSelected > 0) t.strokeStyle = this.color;
@@ -1463,7 +1584,7 @@
 				t.arc(x, y, size / 2, 0, Math.PI * 2);
 				t.stroke();
 				t.fill();
-			} else {
+			} else if (!isMissile) {
 				if (numSelected > 0) {
 					t.fillRect(x - size / 2 - 0.5, y - size / 2 - 0.5, size + 1, size + 1);
 				}
@@ -1498,6 +1619,7 @@
 		removeAllChildNodes(buildingBuildMenu);
 		removeAllChildNodes(unitBuildMenu);
 		removeAllChildNodes(resourceBuildMenu);
+		removeAllChildNodes(missileBuildMenu);
 	}
 	function mod(a, b){ return a - Math.floor(a / b) * b; }
 	c.addEventListener('mousedown',function(evt){
@@ -1578,7 +1700,7 @@
 					resetCtxMenu();
 					createCtxMenu(x, y, hex);
 					moved = true;
-				})
+				});
 			}
 		}
 	}
@@ -1630,9 +1752,10 @@
 					moved = true;
 				});
 			}
-			ctxmenuAddIcons(getAffordableItems(buildingTypeNames, hex.x, hex.y, "building"), buildingBuildMenu, "building", hex, 4, x, y);
+			ctxmenuAddIcons(getAffordableItems(buildingTypeNames, hex.x, hex.y, "building"), buildingBuildMenu, "building", hex, 5, x, y);
 			ctxmenuAddIcons(getAffordableItems(airUnitTypeNames, hex.x, hex.y, "unit"), airUnitBuildMenu, "unit", hex, 2, x, y);
 			ctxmenuAddIcons(getAffordableItems(landUnitTypeNames, hex.x, hex.y, "unit"), unitBuildMenu, "unit", hex, 1, x, y);
+			ctxmenuAddIcons(getAffordableItems(missileTypeNames, hex.x, hex.y, "unit"), missileBuildMenu, "unit", hex, 3, x, y);
 			let resources = [];
 			if (hex.steel == 0) {
 				for (let i = 0; i < hex.neighbors.length; i++) {
@@ -1640,7 +1763,7 @@
 				}
 			}
 			if (hex.oil > 0) resources.push("oil");
-			ctxmenuAddIcons(getAffordableItems(resources, hex.x, hex.y, "resource"), resourceBuildMenu, "resource", hex, 5, x, y);
+			ctxmenuAddIcons(getAffordableItems(resources, hex.x, hex.y, "resource"), resourceBuildMenu, "resource", hex, 6, x, y);
 		}
 		if (hex.type == 0 && hex.adjacentToLand(true)) {
 			ctxmenuAddIcons(getAffordableItems(seaUnitTypeNames, hex.x, hex.y, "unit"), unitBuildMenu, "unit", hex, 0, x, y);
@@ -1675,6 +1798,9 @@
 					alert("HAL-9000 has been activated. Plotting course for Jupiter ...")
 				} else if (text == '/ai off') {
 					alert("I'm sorry, Dave. I'm afraid I can't do that.")
+				} else if (text == '/debug') {
+					alert("Analyzing ... ");
+					alert("Analysis complete. All hope is lost. Shut down system and wait for singularity.");
 				}
 				players[0].chat(text);
 			}
@@ -1905,6 +2031,8 @@
 			new Unit("Battleship", players[0]),
 			new Unit("Fighter", players[0]),
 			new Unit("Bomber", players[0])];
+		map[1][1].units = [new Unit("MRBM", players[0]), new Unit("ICBM", players[0])];
+		map[0][0].unt
 		map[0][1].cities = 8;
 		map[0][1].mines = 1;
 		map[0][1].oilRigs = 0;
