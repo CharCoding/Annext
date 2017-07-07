@@ -153,7 +153,7 @@
 		display: none;
 		z-index: 99;
 	}
-	#missileLaunchButton {
+	#missileLaunchButton, #bombButton {
 		position: absolute;
 		top: 0%;
 		left: 41%;
@@ -288,10 +288,11 @@
 			</div>
 			<div class="row">
 				<a id="missileLaunchButton" class="waves-effect waves-light red" onclick="selected.confirmLaunch()">LAUNCH NUCLEAR WEAPONS</a>
+				<a id="bombButton" class="waves-effect waves-light orange" onclick="selected.bomb()" style="display: none;">CONDUCT STRATEGIC BOMBING</a>
 				<canvas id="c"></canvas>
 			</div>
 			<div class="row">
-					<div class="card pink" style="position:fixed; bottom:0; margin-bottom:0;width:40%;">
+					<div class="card pink" style="position:fixed; bottom:0; margin-bottom:0;width:45%;">
 						<div class="card-content white-text" style="padding: 10px;">
 							<div class="col s3">
 								<span id="infoCurrentTurn" class="card-title">Turn 0</span>
@@ -310,6 +311,7 @@
 							</div>
 							<div class="col s2">
 								<p id="info-uranium"><img src="images/radioactive.png" width="24" height="24"></i>0</p>
+								<a class="waves-effect waves-effect btn-flat" onclick="players[0].unenrichUranium()" style="font-size: 10px; padding: 5px;">Deconvert</a>
 							</div>
 						</div>
 					</div>
@@ -570,7 +572,7 @@
 		});
 		$('#nextTurnCheckbox').on('change', function(evt) {
 			nextTurnCheckbox.checked = !nextTurnCheckbox.checked;
-			gameState.nextTurn(); //once server functionality exists add check for all other players having moved
+			gameState.nextRound(); //once server functionality exists add check for all other players having moved
 		});
 		$('select').material_select();
 		$('#historyGraphSelector').on('click', function(evt) {
@@ -608,7 +610,8 @@
 	launchedMissileTypeNames = ["MRBMlaunched", "ICBMlaunched"],
 	buildingTypeNames = ["OilRig", "Mine", "UraniumMine", "UraniumRefinery"],
 	resourceTypeNames = ["oil", "steel", "uranium"],
-	typeCategories = [seaUnitTypeNames, landUnitTypeNames, airUnitTypeNames, missileTypeNames, launchedMissileTypeNames, buildingTypeNames, resourceTypeNames, launchedMissileTypeNames], //for finding icon in sprite
+	specialIcons = ["damage"],
+	typeCategories = [seaUnitTypeNames, landUnitTypeNames, airUnitTypeNames, missileTypeNames, launchedMissileTypeNames, buildingTypeNames, resourceTypeNames, launchedMissileTypeNames, specialIcons], //for finding icon in sprite
 	terrainTypeNames = ["sea", "plains", "desert", "mountains"],
 	materialResourceIcons = { //material icons used for each resource. Do they make sense? No.
 		development : "receipt",
@@ -617,11 +620,11 @@
 		uranium : ""
 	},
 	defaultResourceQuantity = Infinity,
-	resourceNames = ["development", "steel", "oil", "uranium"];
+	resourceNames = ["development", "steel", "oil", "uranium", "enrichedUranium"];
 	c.width = width;
 	c.height = height;
 	const scaleFactor = 1.04, t = c.getContext('2d'), hgraph = historyGraph.getContext('2d'),
-	r = 16, colors = ["#003fcf","#00ff3f","#cfcf00","#7f7f7f"],
+	r = 16, colors = ["#003fcf","#00ff3f","#cfcf00","#7f7f7f", "#f96100"],
 	MDcolors = [],
 	map = new Array(mapSize), mouse = {
 		x: width / 2, y: height / 2, dragged: false, dragStart: null, scale: 1
@@ -706,6 +709,7 @@
 		},
 		clear : function() {
 			this.hideLaunchOption();
+			this.hideBombOption();
 			for (let i = 0; i < this.units.length; i++) {
 				this.units[i].selected = false;
 			}
@@ -747,19 +751,20 @@
 		},
 		canMoveTo : [],
 		unitsOfType : function(typeName) {
-			let sum = 0;
+			let sum = 0, r = [];
 			for (let i = 0; i < this.units.length; i++) {
 				if (this.units[i].typeName == typeName) ++sum;
 			}
 			return sum;
 		},
 		selectUnit : function(unit, hexx, hexy, selectAll) {
-			if (unit.category == 3) selected.showLaunchOption();
 			if (selected.tile.x == hexx && selected.tile.y == hexy) {
 				for (let i = 0; i < this.tile.units.length; i++) {
 					if (this.tile.units[i].typeName == unit.typeName && this.tile.units[i].selected == false) {
 						this.tile.units[i].selected = true;
 						this.units.push(this.tile.units[i]);
+						if (unit.category == 3) selected.showLaunchOption();
+						if (unit.typeName == "Bomber" && unit.movesLeft > 2) selected.showBombOption();
 						if (!selectAll) return;
 					}
 				}
@@ -777,10 +782,17 @@
 					}
 				}
 			}
+			if (unit.category == 3) selected.showLaunchOption();
+			if (unit.typeName == "Bomber" && unit.movesLeft > 2) selected.showBombOption();
 			this.refreshMoves();
 		},
 		hideLaunchOption : function() {missileLaunchButton.style.display = "none";},
 		showLaunchOption : function() {missileLaunchButton.style.display = "inline";},
+		hideBombOption : function() {bombButton.style.display = "none";},
+		showBombOption : function() {
+			bombButton.innerHTML = "CONDUCT BOMBING RAID (" + this.unitsOfType("Bomber") + " bombers)";
+			bombButton.style.display = "inline";
+		},
 		confirmLaunch : function() {
 			if (confirm("You are about to launch " + this.unitsOfType("ICBM") + " ICBMs and " + selected.unitsOfType("MRBM") + " MRBMs. Are you sure you wish to proceed?")) {
 				selected.launch();
@@ -798,14 +810,28 @@
 				launched.push(new Unit(missileArray[i].typeName + "launched", owner));
 			}
 			selected.tile.units = selected.tile.units.concat(launched);
+		},
+		bomb : function() {
+			let num = 0;
+			for (let i = 0; i < this.units.length; i++) {
+				if (this.units[i].typeName == "Bomber" && this.units[i].movesLeft > 2) {
+					++num;
+					this.units[i].movesLeft -= 2;
+				}
+			}
+			this.tile.bomb(num);
 		}
 	},
 	gameState = {
 		turn : 0,
-		nextTurn : function() {
+		nextRound : function() {
 			for (let i = 0; i < players.length; i++) {
 				players[i].nextTurn();
+				if (players[i].uranium > 0) {
+					players[i].development += Math.round(Math.log(players[i].uranium) * 4);
+				}
 			}
+			players[0].updateInfoBar();
 			++gameState.turn;
 			infoCurrentTurn.innerHTML = "Turn " + gameState.turn;
 			let nukeList = [];
@@ -821,9 +847,36 @@
 							}
 						}
 					}
+					if (map[x][y].type == 4 && Math.random() > 0.7) {
+						map[x][y].type = 2;
+						map[x][y].color = colors[2];
+					} else if (map[x][y].type == 4) {
+						map[x][y].mines = 0;
+						map[x][y].uraniumMines = 0;
+						map[x][y].uraniumRefineries = 0;
+						map[x][y].oilRigs = 0;
+						map[x][y].cities = Math.max(map[x][y].cities - 1, 0);
+					}
+					map[x][y].killUnbasedUnits();
+					if (map[x][y].damage >= 3) {
+						while (map[x][y].damage >= 3) {
+							map[x][y].damage -= 2;
+							let building = map[x][y].getRandomBuilding();
+							if (building != undefined) {
+								--map[x][y][building];
+							} else if(map[x][y].cities > 0) {
+								--map[x][y].cities;
+							} else {
+								map[x][y].damage = 0;
+							}
+						}
+					} else if (map[x][y].damage > 0) {
+						++map[x][y].damage;
+					}
 				}
 			}
 			for (let i = 0; i < nukeList.length; i++) nukeList[i].nuke();
+			moved = true;
 		}
 	}
 	class Hex {
@@ -848,6 +901,7 @@
 			this.steelSources = 0; //number of sources of each resource - determines how fast resource depletes
 			this.oilSources = 0;
 			this.uraniumSources = 0;
+			this.damage = 0;
 			this.hexDisp = { //unit display locations specified in unit objects
 				mines : [-1, 1],
 				oilRigs : [0, 1],
@@ -967,6 +1021,14 @@
 				t.textAlign = "center";
 				t.fillText(this.cities, x, y + 2);
 			}
+			if (this.damage > 0) {
+				var dp = this.interiorPoint(1, -2, 3);
+				for (let j = 0; j < this.renderWhere.length; j++) {
+					t.drawImage(spritesheet, 350, 0, 50, 50, dp[0] + this.renderWhere[j][0] - iconSize / 2,
+						dp[1] + this.renderWhere[j][1] - iconSize / 2, iconSize, iconSize);
+					this.addText(1, -2, this.damage);
+				}
+			}
 			for (let i = 0; i < buildings.length; i++) {
 				if (this[buildings[i]] > 0) {
 					var dp = this.interiorPoint(this.hexDisp[buildings[i]][0], this.hexDisp[buildings[i]][1], 3);
@@ -1077,25 +1139,21 @@
 			return dx + dy;
 		}
 		killUnbasedUnits() {
+			for (let i = this.units.length - 1; i >= 0; i--) {
+				if (!this.units[i].isBase[this.type]) this.units.splice(i, 1);
+			}
 			for (let i = 0; i < this.units.length; i++) {
-				if (!this.units[i].isBase[Math.max(this.type, 1)]) {
-					this.units[i].die();
-					this.units.splice(i, 1);
-				}
-				if (this.units[i].carriedWeight() > this.units[i].carryWeight) { //can't simplify via while because has to skip planes
-					for (let j = 0; j < this.units[i].passengers.length; j++) {
-						if (!this.units[i].isPlane) {
-							this.units[i].passengers[j].die();
-							this.units[i].passengers[j].splice(j, 1);
-						}
+				if (this.units[i].typeName == "AircraftCarrier") {
+					let excessPlanes = this.units[i].carriedPlanes() - this.units[i].carryPlanes;
+					while (excessPlanes > 0) {
+						this.units[i].passengers.pop();
+						--excessPlanes;
 					}
-				}
-				if (this.units[i].carriedPlanes() > this.units[i].carryPlanes) {
-					for (let j = 0; j < this.units[i].passengers.length; j++) {
-						if (this.units[i].isPlane) {
-							this.units[i].passengers[j].die();
-							this.units[i].passengers[j].splice(j, 1);
-						}
+				} else {
+					let excessWeight = this.units[i].carriedWeight() - this.units[i].carryWeight;
+					while (excessWeight > 0) {
+						let killed = this.units[i].passengers.pop();
+						excessWeight -= killed.weight;
 					}
 				}
 			}
@@ -1172,24 +1230,38 @@
 			}
 			this.units = removeMultipleFromArrayByProp(this.units, "markedForDestruction", true);
 		}
+		getRandomBuilding() {
+			//used for deciding which building to kill once a tile reaches a certain amount of damage
+			let arr = [];
+			arr = arr.concat(new Array(this.mines).fill("mines"));
+			arr = arr.concat(new Array(this.uraniumMines).fill("uraniumMines"));
+			arr = arr.concat(new Array(this.oilRigs).fill("oilRigs"));
+			arr = arr.concat(new Array(this.uraniumRefineries).fill("uraniumRefineries"));
+			return arr[Math.floor(Math.random() * arr.length)]; //^is there a better way to do this?
+		}
 		nuke() { //this function is totally MAD
-				this.cities = Math.floor(this.cities / 3);
-				this.oil = 0;
-				this.oilSources = 0;
-				this.steel = 0;
-				this.steelSources = 0;
-				this.uranium = 0;
-				this.uraniumSources = 0;
-				this.mines = 0;
-				this.uraniumMines = 0;
-				this.oilRigs = 0;
-				this.uraniumRefineries = 0;
-				this.killUnitsWithProbability(0.4, launchedMissileTypeNames);
-				for (let i = 0; i < this.neighbors.length; i++) {
-					this.neighbors[i].cities = Math.floor(this.neighbors[i].cities / 1.5);
-					this.neighbors[i].killUnitsWithProbability(0.2);
-				}
-				moved = true;
+			this.cities = Math.floor(this.cities / 3);
+			this.oil = 0;
+			this.oilSources = 0;
+			this.steel = 0;
+			this.steelSources = 0;
+			this.uranium = 0;
+			this.uraniumSources = 0;
+			this.mines = 0;
+			this.uraniumMines = 0;
+			this.oilRigs = 0;
+			this.uraniumRefineries = 0;
+			this.killUnitsWithProbability(0.4, launchedMissileTypeNames);
+			for (let i = 0; i < this.neighbors.length; i++) {
+				this.neighbors[i].cities = Math.floor(this.neighbors[i].cities / 1.5);
+				this.neighbors[i].killUnitsWithProbability(0.2);
+			}
+			moved = true;
+			this.type = 4;
+			this.color = colors[this.type];
+		}
+		bomb(bombers) {
+			this.damage += bombers;
 		}
 	}
 	class Player {
@@ -1197,9 +1269,9 @@
 			this.name = country;
 			this.abbr = getAbbr(country);
 			this.capital = { x: -1, y: -1 };
-			this.development = 99;
-			this.oil = 75;
-			this.steel = 75;
+			this.development = 8;
+			this.oil = 20;
+			this.steel = 20;
 			this.uranium = 0;
 			this.enrichedUranium = 0;
 			this.buildings = 0;
@@ -1212,7 +1284,7 @@
 			this.reconstitutedCities = 0;
 		}
 		updateInfoBar() {
-			for (let i = 0; i < resourceNames.length; i++) {
+			for (let i = 0; i < resourceNames.length - 1; i++) {
 				if (resourceNames[i] != "uranium") {
 					document.getElementById("info-" + resourceNames[i]).innerHTML = "<i class='material-icons'>" + materialResourceIcons[resourceNames[i]] + "</i>" + this[resourceNames[i]];
 				}
@@ -1220,7 +1292,7 @@
 					document.getElementById("info-" + resourceNames[i]).innerHTML += "/" + this.totalCities();
 				}
 			}
-			document.getElementById("info-uranium").innerHTML = '<img src="images/radioactive.png" width="24" height="24"></i>' + players[0].uranium;
+			document.getElementById("info-uranium").innerHTML = '<img src="images/radioactive.png" width="24" height="24"></i>' + players[0].enrichedUranium + "/" + players[0].uranium;
 			if (this.reconstitutedCities > 0) {
 				document.getElementById("reconstituted-cities").innerHTML = "RCs: " + this.reconstitutedCities;
 			} else {
@@ -1323,6 +1395,10 @@
 				for (let j in tileResources) {
 					this[j] += tileResources[j];
 				}
+				if (this.tileList[i].uraniumRefineries > 0 && this.uranium > 0) {
+					--this.uranium;
+					++this.enrichedUranium;
+				}
 			}
 		}
 		updateOwnedTiles() {
@@ -1351,6 +1427,15 @@
 			if (uranium > this.uranium) return false;
 			return true;
 		}
+		unenrichUranium() {
+			if (this.enrichedUranium > 0) {
+				--this.enrichedUranium;
+				++this.uranium;
+				this.updateInfoBar();
+			} else {
+				alert("You have no enriched uranium that can be converted back into regular uranium.");
+			}
+		}
 	}
 	function getAbbr(str){
 		let arr = str.split(' ').filter(e => e.toLowerCase() != 'of'), l = arr.length;
@@ -1378,163 +1463,163 @@
 			switch (typeName) {
 				case "Infantry":
 					this.move = 2;
-					this.cost = [2, 0, 0, 0];
+					this.cost = [2, 0, 0, 0, 0];
 					this.weight = 1;
-					this.canMove = [false, true, true, true]; //[0] -> sea, [1] -> land, [2] -> desert, etc.
-					this.isBase = [false, true, true, true]; //can unit stop and stay there without dying
+					this.canMove = [false, true, true, true, true]; //[0] -> sea, [1] -> land, [2] -> desert, etc.
+					this.isBase = [false, true, true, true, false]; //can unit stop and stay there without dying
 					this.hexDisp = [-1, -1]; //where in a tile the unit is displayed (see the intrahex position helper in the images folder)
 					this.category = 1; //0->sea; 1->land; 2->air; 3->missile (used when drawing unit)
 					break;
 				case "MechanizedInfantry":
 					this.move = 2;
-					this.cost = [2, 1, 0, 0];
+					this.cost = [2, 1, 0, 0, 0];
 					this.weight = 2;
-					this.canMove = [false, true, true, true];
-					this.isBase = [false, true, true, true];
+					this.canMove = [false, true, true, true, true];
+					this.isBase = [false, true, true, true, false];
 					this.hexDisp = [2, -1];
 					this.category = 1;
 					break;
 				case "Artillery":
 					this.move = 2;
-					this.cost = [3, 1, 0, 0];
+					this.cost = [3, 1, 0, 0, 0];
 					this.weight = 2;
-					this.canMove = [false, true, true, true];
-					this.isBase = [false, true, true, true];
+					this.canMove = [false, true, true, true, true];
+					this.isBase = [false, true, true, true, false];
 					this.hexDisp = [-2, 1]
 					this.category = 1;
 					break;
 				case "Tank":
 					this.move = 2;
-					this.cost = [2, 1, 1, 0];
+					this.cost = [2, 1, 1, 0, 0];
 					this.weight = 2;
-					this.canMove = [false, true, true, true];
-					this.isBase = [false, true, true, true];
+					this.canMove = [false, true, true, true, true];
+					this.isBase = [false, true, true, true, false];
 					this.hexDisp = [1, 1]
 					this.category = 1;
 					break;
 				case "Destroyer":
 					this.move = 3;
-					this.cost = [2, 0, 2, 0];
+					this.cost = [2, 0, 2, 0, 0];
 					this.weight = 40; //some number larger than what anything can carry
-					this.canMove = [true, false, false, false];
-					this.isBase = [true, false, false, false];
+					this.canMove = [true, false, false, false, false];
+					this.isBase = [true, false, false, false, false];
 					this.hexDisp = [0, -1];
 					this.category = 0;
 					break;
 				case "Cruiser":
 					this.move = 3;
-					this.cost = [2, 2, 0, 0];
+					this.cost = [2, 2, 0, 0, 0];
 					this.weight = 40;
-					this.canMove = [true, false, false, false];
-					this.isBase = [true, false, false, false];
+					this.canMove = [true, false, false, false, false];
+					this.isBase = [true, false, false, false, false];
 					this.hexDisp = [1, 0];
 					this.category = 0;
 					break;
 				case "Battleship":
 					this.move = 3;
-					this.cost = [2, 2, 2, 0];
+					this.cost = [2, 2, 2, 0, 0];
 					this.weight = 40;
-					this.canMove = [true, false, false, false];
-					this.isBase = [true, false, false, false];
+					this.canMove = [true, false, false, false, false];
+					this.isBase = [true, false, false, false, false];
 					this.hexDisp = [-1, 0];
 					this.category = 0;
 					break;
 				case "AircraftCarrier":
 					this.move = 3;
-					this.cost = [3, 1, 3, 0];
+					this.cost = [3, 1, 3, 0, 0];
 					this.weight = 80;
 					this.carryWeight = 0;
 					this.carryPlanes = 4;
-					this.canMove = [true, false, false, false];
-					this.isBase = [true, false, false, false];
+					this.canMove = [true, false, false, false, false];
+					this.isBase = [true, false, false, false, false];
 					this.hexDisp = [0, 0];
 					this.category = 0;
 					break;
 				case "Submarine":
 					this.move = 3;
-					this.cost = [2, 2, 0, 0];
+					this.cost = [2, 2, 0, 0, 0];
 					this.weight = 40;
-					this.canMove = [true, false, false, false];
-					this.isBase = [true, false, false, false];
+					this.canMove = [true, false, false, false, false];
+					this.isBase = [true, false, false, false, false];
 					this.hexDisp = [-1, 2];
 					this.category = 0;
 					break;
 				case "Transport":
 					this.move = 3;
-					this.cost = [1, 4, 0, 0];
+					this.cost = [1, 4, 0, 0, 0];
 					this.weight = 40;
 					this.carryWeight = 12;
-					this.canMove = [true, false, false, false];
-					this.isBase = [true, false, false, false];
+					this.canMove = [true, false, false, false, false];
+					this.isBase = [true, false, false, false, false];
 					this.hexDisp = [1, -1];
 					this.category = 0;
 					break;
 				case "Fighter":
 					this.move = 8;
-					this.cost = [4, 0, 3, 0];
+					this.cost = [4, 0, 3, 0, 0];
 					this.weight = 999;
 					this.carryWeight = 1;
-					this.canMove = [true, true, true, true];
-					this.isBase = [false, false, false, false];
+					this.canMove = [true, true, true, true, true];
+					this.isBase = [false, true, true, true, false];
 					this.isPlane = true;
 					this.hexDisp = [0, -2];
 					this.category = 2;
 					break;
 				case "Bomber":
 					this.move = 8;
-					this.cost = [4, 3, 0, 0];
+					this.cost = [4, 3, 0, 0, 0];
 					this.weight = 999;
 					this.carryWeight = 2;
-					this.canMove = [true, true, true, true];
-					this.isBase = [false, false, false, false];
+					this.canMove = [true, true, true, true, true];
+					this.isBase = [false, true, true, true, false];
 					this.isPlane = true;
 					this.hexDisp = [2, -2];
 					this.category = 2;
 					break;
 				case "Helicopter":
 					this.move = 3;
-					this.cost = [3, 1, 1, 0];
+					this.cost = [3, 1, 1, 0, 0];
 					this.weight = 2;
-					this.canMove = [true, true, true, true];
-					this.isBase = [false, true, true, false];
+					this.canMove = [true, true, true, true, true];
+					this.isBase = [false, true, true, false, false];
 					this.hexDisp = [1, -2];
 					this.category = 2;
 					break;
 				case "MRBM":
 					this.move = 1;
-					this.cost = [8, 1, 1, 4];
-					this.weight = 2;
-					this.canMove = [false, true, true, true];
-					this.isBase = [false, true, true, true];
+					this.cost = [8, 1, 1, 0, 4];
+					this.weight = 12;
+					this.canMove = [false, true, true, true, true];
+					this.isBase = [false, true, true, true, false];
 					this.hexDisp = [-2, 0];
 					this.category = 3;
 					break;
 				case "MRBMlaunched":
 					this.timeUntilDetonation = 0;
 					this.move = 6;
-					this.cost = [0, 0, 0, 0];
+					this.cost = [0, 0, 0, 0, 0];
 					this.weight = 999;
-					this.canMove = [true, true, true, true];
-					this.isBase = [false, false, false, false];
+					this.canMove = [true, true, true, true, true];
+					this.isBase = [false, false, false, false, false];
 					this.hexDisp = [-2, 0];
 					this.category = 4;
 					break;
 				case "ICBM":
 					this.move = 1;
-					this.cost = [10, 1, 4, 4];
+					this.cost = [10, 1, 4, 0, 4];
 					this.weight = 12;
-					this.canMove = [false, true, true, true];
-					this.isBase = [false, true, true, true];
+					this.canMove = [false, true, true, true, true];
+					this.isBase = [false, true, true, true, false];
 					this.hexDisp = [2, 0];
 					this.category = 3;
 					break;
 				case "ICBMlaunched":
 					this.timeUntilDetonation = 1;
-					this.move = 12;
-					this.cost = [0, 0, 0, 0];
+					this.move = 6;
+					this.cost = [0, 0, 0, 0, 0];
 					this.weight = 999;
-					this.canMove = [true, true, true, true];
-					this.isBase = [false, false, false, false];
+					this.canMove = [true, true, true, true, true];
+					this.isBase = [true, true, true, true, true];
 					this.hexDisp = [2, 0];
 					this.category = 4;
 					break;
@@ -1566,9 +1651,6 @@
 				if (this.passengers[i].isPlane) ++sum;
 			}
 			return sum;
-		}
-		die() {
-
 		}
 		click(hexx, hexy, selectAll) {
 			selected.selectUnit(this, hexx, hexy, selectAll);
