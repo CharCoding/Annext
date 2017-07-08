@@ -163,6 +163,13 @@
 		text-align: center;
 		display: none;
 	}
+	#passengerListDiv {
+		position: absolute;
+		top: 0%;
+		width: 25%;
+		left: 75%;
+		display: none;
+	}
 	</style>
 	<script type="text/javascript">
 	(function(window,document) {
@@ -290,6 +297,12 @@
 				<a id="missileLaunchButton" class="waves-effect waves-light red" onclick="selected.confirmLaunch()">LAUNCH NUCLEAR WEAPONS</a>
 				<a id="bombButton" class="waves-effect waves-light orange" onclick="selected.bomb()" style="display: none;">CONDUCT STRATEGIC BOMBING</a>
 				<canvas id="c"></canvas>
+				<div id="passengerListDiv" class="card grey lighten-3">
+					<div class="card-content">
+						<p>The selected units are carrying:</p>
+						<p id="passengerList"></p>
+					</div>
+				</div>
 			</div>
 			<div class="row">
 					<div class="card pink" style="position:fixed; bottom:0; margin-bottom:0;width:45%;">
@@ -304,7 +317,7 @@
 								<p id="reconstituted-cities"></p>
 							</div>
 							<div class="col s2">
-								<p id="info-steel"><i class="material-icons">view_week</i>0</p>
+								<p id="info-iron"><i class="material-icons">view_week</i>0</p>
 							</div>
 							<div class="col s2">
 								<p id="info-oil"><i class="material-icons">invert_colors</i>0</p>
@@ -352,7 +365,7 @@
 				<ul id='historyGraphSelector' class='dropdown-content indigo-text'>
 					<li><a class="indigo-text">Development</a></li>
 					<li><a class="indigo-text">Population</a></li>
-					<li><a class="indigo-text">Steel Production</a></li>
+					<li><a class="indigo-text">iron Production</a></li>
 					<li><a class="indigo-text">Oil Production</a></li>
 					<li><a class="indigo-text">Air Units</a></li>
 					<li><a class="indigo-text">Land Units</a></li>
@@ -368,7 +381,7 @@
 			<ul id='statsSelector' class='dropdown-content indigo-text'>
 				<li><a class="indigo-text">Development</a></li>
 				<li><a class="indigo-text">Population</a></li>
-				<li><a class="indigo-text">Steel Production</a></li>
+				<li><a class="indigo-text">iron Production</a></li>
 				<li><a class="indigo-text">Oil Production</a></li>
 				<li><a class="indigo-text">Air Units</a></li>
 				<li><a class="indigo-text">Land Units</a></li>
@@ -526,7 +539,8 @@
 				players[0].updateInfoBar();
 				$('#countryName').text(players[0].name);
 				$('#countryModal').remove();
-				loadRenderTests(); //for testing
+				//loadRenderTests(); //for testing
+				randomStart();
 				// TODO: Send country object to server
 			}});
 			$('#countryModal').modal('open');
@@ -609,18 +623,18 @@
 	missileTypeNames = ["MRBM", "ICBM"],
 	launchedMissileTypeNames = ["MRBMlaunched", "ICBMlaunched"],
 	buildingTypeNames = ["OilRig", "Mine", "UraniumMine", "UraniumRefinery"],
-	resourceTypeNames = ["oil", "steel", "uranium"],
+	resourceTypeNames = ["oil", "iron", "uranium"],
 	specialIcons = ["damage"],
 	typeCategories = [seaUnitTypeNames, landUnitTypeNames, airUnitTypeNames, missileTypeNames, launchedMissileTypeNames, buildingTypeNames, resourceTypeNames, launchedMissileTypeNames, specialIcons], //for finding icon in sprite
 	terrainTypeNames = ["sea", "plains", "desert", "mountains"],
 	materialResourceIcons = { //material icons used for each resource. Do they make sense? No.
 		development : "receipt",
-		steel : "view_week",
+		iron : "view_week",
 		oil : "invert_colors",
 		uranium : ""
 	},
 	defaultResourceQuantity = Infinity,
-	resourceNames = ["development", "steel", "oil", "uranium", "enrichedUranium"];
+	resourceNames = ["development", "iron", "oil", "uranium", "enrichedUranium"];
 	c.width = width;
 	c.height = height;
 	const scaleFactor = 1.04, t = c.getContext('2d'), hgraph = historyGraph.getContext('2d'),
@@ -687,6 +701,7 @@
 	var selected = {
 		units : [],
 		tile : {units : [], hexesWithinDist : function() {return [];}}, //avoid errors
+		canMoveTo : [],
 		moveTo : function(hex) {
 			var unselected = [];
 			for (let i = 0; i < selected.tile.units.length; i++) {
@@ -707,6 +722,79 @@
 			selected.clear();
 			if (selected.tile.owner) selected.tile.owner.updateOwnedTiles();
 		},
+		embarkTo : function(hex, unit) {
+			let disembarked = [], embarkingTo = hex.getAllUnitsOfType(unit.typeName);
+			if (unit.typeName == "AircraftCarrier") {
+				for (let i = this.units.length - 1; i >= 0; i--) {
+					if (this.units[i].isPlane) {
+						var hasEmbarked = false;
+						for (let j = 0; j < embarkingTo.length; j++) {
+							if (embarkingTo[j].carriedPlanes() + 1 <= embarkingTo[j].carryPlanes) {
+								this.tile.killUnit(this.units[i].typeName);
+								embarkingTo[j].passengers = embarkingTo[j].passengers.concat(this.units.splice(i, 1));
+								hasEmbarked = true;
+								break;
+							}
+						}
+						if (!hasEmbarked) disembarked.push(this.units[i].typeName);
+					}
+				}
+			} else {
+				for (let i = this.units.length - 1; i >= 0; i--) {
+					if (!this.units[i].isPlane) {
+						var hasEmbarked = false;
+						for (let j = 0; j < embarkingTo.length; j++) {
+							if (embarkingTo[j].carriedWeight() + this.units[i].weight <= embarkingTo[j].carryWeight) {
+								this.tile.killUnit(this.units[i].typeName);
+								embarkingTo[j].passengers = embarkingTo[j].passengers.concat(this.units.splice(i, 1));
+								hasEmbarked = true;
+								break;
+							}
+						}
+						if (!hasEmbarked) disembarked.push(this.units[i].typeName);
+					}
+				}
+			}
+			if (disembarked.length > 0) {
+				alert("The following units could not be embarked because the transport unit's carrying capacity is not high enough: " + disembarked.join(", "))
+			}
+			this.clear();
+		},
+		disembarkTo : function(hex) {
+			for (let i = 0; i < selected.units.length; i++) {
+				for (let j = 0; j < selected.units[i].passengers.length; j++) {
+					if (!selected.units[i].passengers[j].isPlane) selected.units[i].passengers[j].movesLeft = 0;
+					selected.units[i].passengers[j].selected = false;
+				}
+				hex.units = hex.units.concat(selected.units[i].passengers);
+				selected.units[i].passengers = [];
+			}
+			this.clear();
+		},
+		countPassengers : function() {
+			let nums = [], passengerTypeNames = landUnitTypeNames.concat(airUnitTypeNames), draw = false;
+			for (let i = 0; i < passengerTypeNames.length; i++) {
+				nums.push(this.passengersOfType(passengerTypeNames[i]));
+				if (nums[nums.length - 1] > 0) draw = true;
+			}
+			if (draw) passengerListDiv.style.display = "inline";
+			if(!draw) passengerListDiv.style.display = "none";
+			passengerList.innerHTML = "";
+			for (let i = 0; i < passengerTypeNames.length; i++) {
+				if (nums[i] != 0) {
+					passengerList.innerHTML += passengerTypeNames[i] + ":" + nums[i] + "<br>";
+				}
+			}
+		},
+		passengersOfType : function(typeName) {
+			let sum = 0;
+			for (let i = 0; i < this.units.length; i++) {
+				for (let j = 0; j < this.units[i].passengers.length; j++) {
+					if (this.units[i].passengers[j].typeName == typeName) ++sum;
+				}
+			}
+			return sum;
+		},
 		clear : function() {
 			this.hideLaunchOption();
 			this.hideBombOption();
@@ -715,6 +803,7 @@
 			}
 			this.units = [];
 			this.refreshMoves();
+			this.countPassengers();
 		},
 		selectAllFromTile : function(hex) {
 			this.clear();
@@ -749,12 +838,13 @@
 			}
 			return biomes;
 		},
-		canMoveTo : [],
-		unitsOfType : function(typeName) {
+		unitsOfType : function(typeName, returnArr) {
 			let sum = 0, r = [];
 			for (let i = 0; i < this.units.length; i++) {
 				if (this.units[i].typeName == typeName) ++sum;
+				if (returnArr) r.push(this.units[i]);
 			}
+			if (returnArr) return r;
 			return sum;
 		},
 		selectUnit : function(unit, hexx, hexy, selectAll) {
@@ -764,7 +854,8 @@
 						this.tile.units[i].selected = true;
 						this.units.push(this.tile.units[i]);
 						if (unit.category == 3) selected.showLaunchOption();
-						if (unit.typeName == "Bomber" && unit.movesLeft > 2) selected.showBombOption();
+						if (unit.typeName == "Bomber" && unit.movesLeft > 2 && selected.tile.type != 0) this.showBombOption();
+						this.countPassengers();
 						if (!selectAll) return;
 					}
 				}
@@ -782,8 +873,9 @@
 					}
 				}
 			}
+			this.countPassengers();
 			if (unit.category == 3) selected.showLaunchOption();
-			if (unit.typeName == "Bomber" && unit.movesLeft > 2) selected.showBombOption();
+			if (unit.typeName == "Bomber" && unit.movesLeft > 2 && selected.tile.type != 0) selected.showBombOption();
 			this.refreshMoves();
 		},
 		hideLaunchOption : function() {missileLaunchButton.style.display = "none";},
@@ -882,7 +974,6 @@
 	class Hex {
 		constructor(x, y, type){
 			this.type = type;
-			this.color = colors[type];
 			this.x = x;
 			this.y = y;
 			this.owner = null;
@@ -895,10 +986,10 @@
 			this.units = [];
 			this.isCapital = false;
 			this.development = Infinity; //reserves of each resource
-			this.steel = 0; //resource amounts set during map gen
+			this.iron = 0; //resource amounts set during map gen
 			this.oil = 0;
 			this.uranium = 0;
-			this.steelSources = 0; //number of sources of each resource - determines how fast resource depletes
+			this.ironSources = 0; //number of sources of each resource - determines how fast resource depletes
 			this.oilSources = 0;
 			this.uraniumSources = 0;
 			this.damage = 0;
@@ -907,12 +998,15 @@
 				oilRigs : [0, 1],
 				uraniumMines : [-1, 0],
 				uraniumRefineries : [1, 0],
-				steel : [-2, 2],
+				iron : [-2, 2],
 				uranium : [-1, 2],
 				oil : [0, 2]
 			}
 			this.renderWhere = []; //for rendering a hex multiple times for infinite scroll
 			return map[x][y] = this;
+		}
+		get color() {
+			return colors[this.type];
 		}
 		get neighbors(){
 			return [ // does this really work?
@@ -986,7 +1080,7 @@
 		}
 		drawUnits() {
 			for (let i = 0; i < unitTypeNames.length; i++) {
-				let num = this.unitNumberFromType(unitTypeNames[i]),
+				let num = this.unitsOfType(unitTypeNames[i]),
 				isMissile = false;
 				if (unitTypeNames[i] == "MRBM" || unitTypeNames[i] == "ICBM") isMissile = true;
 				if (num !== 0) {
@@ -999,7 +1093,7 @@
 						numSelected = selected.unitsOfType(unitTypeNames[i]);
 					}
 					for (let j = 0; j < this.renderWhere.length; j++) {
-						unitObject.render(coords[0] + this.renderWhere[j][0], coords[1] + this.renderWhere[j][1], num, numSelected, isMissile);
+						unitObject.render(coords[0] + this.renderWhere[j][0], coords[1] + this.renderWhere[j][1], num, numSelected, this.x, this.y, isMissile);
 					}
 				}
 			}
@@ -1045,7 +1139,7 @@
 		}
 		drawResources() {
 			var [x, y] = hexCoordToPoint(this.x, this.y),
-			resources = ["steel", "oil", "uranium"];
+			resources = ["iron", "oil", "uranium"];
 			for (let i = 0; i < resources.length; i++) {
 				if (this[resources[i]] > 0) {
 					var dp = this.interiorPoint(this.hexDisp[resources[i]][0], this.hexDisp[resources[i]][1], 3);
@@ -1134,9 +1228,16 @@
 			return [rx, rz];
 		}
 		distanceTo(hx, hy) {
-			var dx = Math.min(Math.abs(hx - this.x), Math.abs(map.length - this.x - hx)),
-			dy = Math.min(Math.abs(hy - this.y), Math.abs(map.length - this.y - hy));
-			return dx + dy;
+			let x1 = this.x, x2 = hx, y1 = this.y, y2 = hy, z1 = -this.y-this.x, z2 = -hx-hy;
+			if (x2 > y2) {
+				var vx = x2 - mapSize;
+				var vy = y2;
+			} else {
+				var vx = x2;
+				var vy = y2 - mapSize;
+			}
+			return Math.min(Math.max(Math.abs(x1-x2), Math.abs(y1-y2), Math.abs(z1-z2)),
+				Math.max(Math.abs(x1-vx), Math.abs(y1-vy), Math.abs(-vx-vy)));
 		}
 		killUnbasedUnits() {
 			for (let i = this.units.length - 1; i >= 0; i--) {
@@ -1158,10 +1259,17 @@
 				}
 			}
 		}
-		unitNumberFromType(typeName) {
+		unitsOfType(typeName) {
 			let sum = 0;
 			for (let i = 0; i < this.units.length; i++) {
 				if (this.units[i].typeName == typeName) ++sum;
+			}
+			return sum;
+		}
+		passengersOn(typeName) {
+			let sum = 0;
+			for (let i = 0; i < this.units.length; i++) {
+				if (this.units[i].typeName == typeName) sum += this.units[i].passengers.length;
 			}
 			return sum;
 		}
@@ -1176,7 +1284,7 @@
 			var production = {
 				development : this.cities,
 				oil : this.oilRigs,
-				steel : this.mines,
+				iron : this.mines,
 				uranium : this.uraniumMines
 			}
 			this.developmentSources = this.cities; //to avoid having to program exception for cities below
@@ -1196,16 +1304,38 @@
 			this[type] += quantity;
 			++this[type + "Sources"];
 		}
-		click(x, y, selectAll) {
+		isClickOnUnit(x, y) {
+			var [tx, ty] = hexCoordToPoint(this.x, this.y),
+			n = 3;
+			x -= tx;
+			y -= ty;
+			var hexCoords = Hex.round2((x * Math.sqrt(3)/3 - y/3) / (r/3/1.5), y * 2/3 / (r/3/1.5));
+			for (let i = 0; i < this.units.length; i++) {
+				if (this.units[i].hexDisp[0] == hexCoords[0] && this.units[i].hexDisp[1] == hexCoords[1]) {
+					return true;
+				}
+			}
+			return false;
+		}
+		click(x, y, selectAll, mode) {
 			var [tx, ty] = hexCoordToPoint(this.x, this.y),
 			n = 3;
 			x -= tx;
 			y -= ty;
 			var hexCoords = Hex.round2((x * Math.sqrt(3)/3 - y/3) / (r/n/1.5), y * 2/3 / (r/n/1.5));
+			if (mode == "disembark" && (selected.tile.neighbors.indexOf(this) != -1 || selected.tile == this)){
+				selected.disembarkTo(this);
+				return;
+			}
 			for (let i = 0; i < this.units.length; i++) {
 				if (this.units[i].hexDisp[0] == hexCoords[0] && this.units[i].hexDisp[1] == hexCoords[1]) {
-					this.units[i].click(this.x, this.y, selectAll);
-					return;
+					if (mode == "embark" && selected.tile.hexesWithinDist(selected.moveRange()).indexOf(this) != -1) {
+						selected.embarkTo(this, this.units[i]);
+						return;
+					} else {
+						this.units[i].click(this.x, this.y, selectAll);
+						return;
+					}
 				}
 			}
 			selected.clear();
@@ -1230,6 +1360,14 @@
 			}
 			this.units = removeMultipleFromArrayByProp(this.units, "markedForDestruction", true);
 		}
+		killUnit(typeName) {
+			for (let i = this.units.length - 1; i >= 0; i--) {
+				if (this.units[i].typeName == typeName) {
+					this.units.splice(i, 1);
+					return;
+				}
+			}
+		}
 		getRandomBuilding() {
 			//used for deciding which building to kill once a tile reaches a certain amount of damage
 			let arr = [];
@@ -1243,8 +1381,8 @@
 			this.cities = Math.floor(this.cities / 3);
 			this.oil = 0;
 			this.oilSources = 0;
-			this.steel = 0;
-			this.steelSources = 0;
+			this.iron = 0;
+			this.ironSources = 0;
 			this.uranium = 0;
 			this.uraniumSources = 0;
 			this.mines = 0;
@@ -1257,8 +1395,10 @@
 				this.neighbors[i].killUnitsWithProbability(0.2);
 			}
 			moved = true;
-			this.type = 4;
-			this.color = colors[this.type];
+			if (this.type != 0) {
+				this.type = 4;
+				this.color = colors[this.type];
+			}
 		}
 		bomb(bombers) {
 			this.damage += bombers;
@@ -1269,9 +1409,10 @@
 			this.name = country;
 			this.abbr = getAbbr(country);
 			this.capital = { x: -1, y: -1 };
-			this.development = 8;
-			this.oil = 20;
-			this.steel = 20;
+			this.development = 0;
+			this.canReconstituteCities = true;
+			this.oil = 0;
+			this.iron = 0;
 			this.uranium = 0;
 			this.enrichedUranium = 0;
 			this.buildings = 0;
@@ -1377,6 +1518,7 @@
 					break;
 				case "City":
 					++map[x][y].cities;
+					this.canReconstituteCities = false;
 			}
 			this.updateInfoBar();
 			// even more webSocket majikz and map majikz
@@ -1404,7 +1546,7 @@
 		updateOwnedTiles() {
 			for (let x = 0; x < map.length; x++) {
 				for (let y = 0; y < map[x].length; y++) {
-					if (map[x][y].owner == null && map[x][y].unitNumberFromType("Infantry") > 0) {
+					if (map[x][y].owner == null && map[x][y].unitsOfType("Infantry") > 0) {
 						if (map[x][y].units[0].owner.name == this.name) {
 							map[x][y].owner = this;
 							this.tileList.push(map[x][y]);
@@ -1416,14 +1558,15 @@
 		nextTurn() {
 			this.development = 0;
 			this.reconstitutedCities = 0;
+			this.canReconstituteCities = true;
 			this.getTileResources();
 			this.updateOwnedTiles();
 			this.updateInfoBar();
 		}
-		canAfford(dev, oil, steel, uranium) {
+		canAfford(dev, oil, iron, uranium) {
 			if (dev > this.development) return false;
 			if (oil > this.oil) return false;
-			if (steel > this.steel) return false;
+			if (iron > this.iron) return false;
 			if (uranium > this.uranium) return false;
 			return true;
 		}
@@ -1655,7 +1798,7 @@
 		click(hexx, hexy, selectAll) {
 			selected.selectUnit(this, hexx, hexy, selectAll);
 		}
-		render(x, y, number, numSelected, isMissile) { //DRAW UNITS
+		render(x, y, number, numSelected, mx, my, isMissile) { //DRAW UNITS
 			let size = iconSize;
 			t.fillStyle = this.color;
 			if (this.canMove[0] && iconSet == "icon" && !isMissile) {
@@ -1680,6 +1823,10 @@
 			var text = number;
 			if (numSelected > 0) text = numSelected + "/" + number;
 			t.fillText(text, x + size / 6, y - size / 6);
+			if (map[mx][my].passengersOn(this.typeName) > 0) {
+				t.font = "2px sans-serif";
+				t.fillText(map[mx][my].passengersOn(this.typeName), x + size / 6, y + size / 6);
+			}
 		}
 	}
 	for(let x = 0; x < mapSize; x++){
@@ -1743,7 +1890,11 @@
 		} else {
 			var pt = t.transformedPoint(mouse.x, mouse.y),
 			selectAll = false, hex = Hex.round(pt.x, pt.y);
-			if (selected.canMoveTo.indexOf(hex) == -1 || selected.tile == hex) {
+			if (hex.isClickOnUnit(pt.x, pt.y) && selected.units.length > 0 && keys[69] > 0) {
+				hex.click(pt.x, pt.y, false, "embark");
+			} else if (keys[85] > 0) {
+				hex.click(pt.x, pt.y, false, "disembark");
+			} else if (selected.canMoveTo.indexOf(hex) == -1 || selected.tile == hex) {
 				if (keys[16] > 0) selectAll = true;
 				hex.click(pt.x, pt.y, selectAll);
 				selected.refreshMoves();
@@ -1820,7 +1971,7 @@
 					moved = true;
 				});
 			}
-			if (hex.cities > 0) { //copy-paste code incoming!
+			if (hex.cities > 0 && players[0].canReconstituteCities) { //copy-paste code incoming!
 				var div = document.createElement("div"),
 				img = document.createElement("img");
 				div.className = "row";
@@ -1839,9 +1990,9 @@
 			ctxmenuAddIcons(getAffordableItems(landUnitTypeNames, hex.x, hex.y, "unit"), unitBuildMenu, "unit", hex, 1, x, y);
 			ctxmenuAddIcons(getAffordableItems(missileTypeNames, hex.x, hex.y, "unit"), missileBuildMenu, "unit", hex, 3, x, y);
 			let resources = [];
-			if (hex.steel == 0) {
+			if (hex.iron == 0) {
 				for (let i = 0; i < hex.neighbors.length; i++) {
-					if (resources.indexOf("steel") == -1 && hex.neighbors[i].steel > 0) resources.push("steel");
+					if (resources.indexOf("iron") == -1 && hex.neighbors[i].iron > 0) resources.push("iron");
 				}
 			}
 			if (hex.oil > 0) resources.push("oil");
@@ -1983,13 +2134,13 @@
 	}
 	function seedToMap(s) {
 		prng.seed = s;
-		var borderLand = 0.4,
-		borderDesert = 0.6,
-		borderMountain = 0.7,
-		levelSizes = [26, 12, 6, 3], //size of (square) level tiles
+		var borderLand = 0.5,
+		borderDesert = 0.65,
+		borderMountain = 0.75,
+		levelSizes = [30, 12, 6, 3], //size of (square) level tiles
 		levelNumbers = [1000, 1000, 1000, 1000], //number of tiles for each level that will need to be generated to fill map (optimize later)
 		levels = [], //values for each level
-		levelMultipliers = [0.1, 0.2, 0.3, 0.2, 0.2]; //weights assigned to sum of each level (should add to 1)
+		levelMultipliers = [0.1, 0.05, 0.4, 0.25, 0.2]; //weights assigned to sum of each level (should add to 1)
 		for (let i = 0; i < levelSizes.length; i++)
 			//levelNumbers.push(Math.ceil(Math.pow(24, 2) / Math.pow(levelSizes[i], 2)));
 			levels.push(new Array(levelNumbers[i]));
@@ -2017,20 +2168,20 @@
 				moved = true;
 			}
 		}
-		generateResource("oil", 16, [1, 1, 1, 1]);
-		generateResource("steel", 250, [0, 0, 1, 1]);
-		generateResource("uranium", 7, [0, 1, 1, 1]);
+		clearResources();
+		generateResource("oil", 19, [1, 1, 1, 1]);
+		generateResource("iron", 250, [0, 0, 1, 1]);
+		generateResource("uranium", 11, [0, 1, 1, 1]);
 	}
 	function clearResources() {
 		for (let x = 0; x < map.length; x++) {
 			for (let y = 0; y < map.length; y++) {
 				map[x][y].oil = 0;
-				map[x][y].steel = 0;
+				map[x][y].iron = 0;
 				map[x][y].uranium = 0;
 			}
 		}
 	}
-	//seedToMap(Math.random() * 1000) //start with random map
 	function addLeadingZeros(n, len) {
 	    var s = n+"";
 	    while (s.length < len) s = "0" + s;
@@ -2051,28 +2202,28 @@
 			arr[x] = arr[x].toString(36); // compress via base36
 		}
 		let p1 = arr.join(),
-		oilSources = [], steelSources = [], uraniumSources = [];
+		oilSources = [], ironSources = [], uraniumSources = [];
 		for (let x = 0; x < mapSize; x++) {
 			for (let y = 0; y < mapSize; y++) {
 				if (map[x][y].oil != 0) oilSources.push(compressCoordinateAndValue(x, y, map[x][y].oil));
-				if (map[x][y].steel != 0) steelSources.push(compressCoordinateAndValue(x, y, map[x][y].steel));
+				if (map[x][y].iron != 0) ironSources.push(compressCoordinateAndValue(x, y, map[x][y].iron));
 				if (map[x][y].uranium != 0) uraniumSources.push(compressCoordinateAndValue(x, y, map[x][y].uranium));
 			}
 		}
-		prompt("Your map: (" + mapSize + " x " + mapSize + ")", p1 + "|" + oilSources.join(",") + "|" + steelSources.join(",") + "|" + uraniumSources.join(","));
+		prompt("Your map: (" + mapSize + " x " + mapSize + ")", p1 + "|" + oilSources.join(",") + "|" + ironSources.join(",") + "|" + uraniumSources.join(","));
 	}
 	function importMap(str,size){
 		if(size) mapSize = size;
 		let r = (str || prompt("Enter a map string:")).split("|"),
 		arr = r[0].split(","), oilSources = r[1].split(","),
-		steelSources = r[2].split(","), uraniumSources = r[3].split(",");
+		ironSources = r[2].split(","), uraniumSources = r[3].split(",");
 		for(let x = 0; x < mapSize; x++){
 			arr[x] = parseInt(arr[x] || 0, 36);
 			for(let y = 0; y < mapSize; y++)
 				map[x][y].color = colors[map[x][y].type = (arr[x] || 0) / Math.pow(2, 2*y) & 3];
 				//hack: & 3 both floors the result (bitwise operator) and modulo the result by 4
 		}
-		unpackResourceString(steelSources, "steel");
+		unpackResourceString(ironSources, "iron");
 		unpackResourceString(oilSources, "oil");
 		unpackResourceString(uraniumSources, "uranium");
 		moved = true;
@@ -2085,22 +2236,22 @@
 			++map[x][y][name + "Sources"];
 		}
 	}
-	importMap("vkisfod,ewpm2oal,if376btp,ewofggbd,begwwf9x,1hd780k,ieydxy4w,3q64aakw,ihf6a9es,lxcvjbr4,4dulwetd,282dc,in0fdzkl,noi2nuop,imw4jxgl,ipbr4fv9,4ecbzur5,ikvkwfa7,15ft74cpp,zdbmp3qh,12ga122vp|asv,dvz,288v,290n,d4zr,f2fr,hguv,lpmv,lvt3,nmb3,10nfz,14t4v,14zb3|1jj,27h3,2cvj,4bv3,4i1b,6h0v,6ikf,8t4n,8vfz,902n,d1wn,jpvj,lo3b,nt93,rwmn,s9qv,u2k7,yhif,10h9r,10mo7,10nfz,10suf,12mfj,130bj,1313b,14rlb,14sd3,155hb,15693,1793j,17an3,17bev|6nyv,rxef,14sd3", 21);
 
-	//importMap("vkisfod,ewoi4arh,2saawou9nh,3h4rgajdll,3h198khnit,1ha2ul0,ieydxy4w,3q64aakw,ihf6a9es,2sdt1xdrgg,2rw9o3kcn5,1k4k5dr7k,in0fdzi8,nodmuckc,2rwhlpdtlx,23cm6vde8l,4ecbzur5,8b71tlcv3,7dxjsh3kt,2vvi0f1ezt,2uegka0kyd,3haarsuy4g,50v5zzxeps,3uqyoqbjcw,2zkhzr5es0", mapSize);
+	var seed = Math.round(Math.random() * 100);
+	console.log("Map seed: " + seed);
+	seedToMap(seed);
+	//importMap("vkisfod,ewoi4arh,2saawou9nh,3h4rgajdll,3h198khnit,1ha2ul0,ieydxy4w,3q64aakw,ihf6a9es,2sdt1xdrgg,2rw9o3kcn5,1k4k5dr7k,in0fdzi8,nodmuckc,2rwhlpdtlx,23cm6vde8l,4ecbzur5,8b71tlcv3,7dxjsh3kt,2vvi0f1ezt,2uegka0kyd,3haarsuy4g,50v5zzxeps,3uqyoqbjcw,2zkhzr5es0|0,2bb,8vfz,90uf,d2of,ddhb,hbgf,jm0n,js6v,lr6f,nn2v,q29r,s547,wat3,12n7b,12yrz,171dr,1b6av,1dnt3,1fm0v|0,2cvj,4i1b,6h0v,6ikf,8t4n,902n,nt93,rwmn,sain,yhif,10suf,12mfj,1313b,14sd3,150un,155hb,15693,1570v,17an3,19f13,1b8m7,1b9dz,1bo1r,1dien,1dsfr|0,5ef,290n,wccn,10lwf,173p3,19b67", 25); //DEFAULT MAP (with resources)
+
+	//importMap("vkisfod,ewoi4arh,2saawou9nh,3h4rgajdll,3h198khnit,1ha2ul0,ieydxy4w,3q64aakw,ihf6a9es,2sdt1xdrgg,2rw9o3kcn5,1k4k5dr7k,in0fdzi8,nodmuckc,2rwhlpdtlx,23cm6vde8l,4ecbzur5,8b71tlcv3,7dxjsh3kt,2vvi0f1ezt,2uegka0kyd,3haarsuy4g,50v5zzxeps,3uqyoqbjcw,2zkhzr5es0||||", mapSize);
 	/* // map stats:
 	sea tiles: 327 (52.32%)  |  plains tiles: 233 (37.28%)  |  desert tiles: 32 (5.12%)  |  mountain tiles: 33 (5.28%) */
 	// importMap("annext,is0the0,best0game,ever0made,everyone0,should0,play0it0,because0,you0get0,to0rule0,the0whole,world0000",12);
 	Player.god = false; // edit map with this
 
-	function loadRenderTests() { //called above
+	function loadRenderTests() { //use for easily testing most game features
 		map[0][1].units = [new Unit("Infantry", players[0]),
 			new Unit("Tank", players[0]),
 			new Unit("Artillery", players[0]),
-			new Unit("MechanizedInfantry", players[0]),
-			new Unit("Artillery", players[0]),
-			new Unit("MechanizedInfantry", players[0]),
-		 	new Unit("Fighter", players[0]),
 			new Unit("Bomber", players[0])];
 		map[5][0].units = [new Unit("AircraftCarrier", players[0]),
 			new Unit("Destroyer", players[0]),
@@ -2110,9 +2261,19 @@
 			new Unit("Cruiser", players[0]),
 			new Unit("Submarine", players[0]),
 			new Unit("Transport", players[0]),
+			new Unit("Transport", players[0]),
 			new Unit("Battleship", players[0]),
 			new Unit("Fighter", players[0]),
 			new Unit("Bomber", players[0])];
+		map[4][0].units = [new Unit("Infantry", players[0]), new Unit("Tank", players[0]),
+			new Unit("MechanizedInfantry", players[0]),
+			new Unit("Artillery", players[0]),
+			new Unit("Tank", players[0]),
+			new Unit("Tank", players[0]),
+			new Unit("Tank", players[0]),
+			new Unit("Tank", players[0]),
+			new Unit("MechanizedInfantry", players[0]),
+			new Unit("Fighter", players[0])];
 		map[1][1].units = [new Unit("MRBM", players[0]), new Unit("ICBM", players[0])];
 		map[0][0].unt
 		map[0][1].cities = 8;
@@ -2121,6 +2282,44 @@
 		map[0][1].owner = players[0];
 		players[0].tileList = [map[0][1]];
 		players[0].updateInfoBar();
+		players[0].development = 999;
+		players[0].iron = 99;
+		players[0].oil = 99;
+		players[0].uranium = 99;
+		players[0].enrichedUranium = 99;
+		map[0][1].type = 1;
+		map[4][0].type = 1;
+		map[5][0].type = 0;
+	}
+	function randomStart() {
+		let startLoc = map[Math.floor(Math.random() * mapSize)][Math.floor(Math.random() * mapSize)];
+		while (startLoc.type == 0) {
+			startLoc = map[Math.floor(Math.random() * mapSize)][Math.floor(Math.random() * mapSize)];
+		}
+		startLoc.cities = 4;
+		startLoc.units = [new Unit("Infantry", players[0]),
+			new Unit("Infantry", players[0]),
+			new Unit("Infantry", players[0]),
+			new Unit("MechanizedInfantry", players[0]),
+			new Unit("Tank", players[0]),
+			new Unit("Artillery", players[0])];
+		startLoc.owner = players[0];
+		players[0].development = 10;
+		players[0].iron = 12;
+		players[0].oil = 12;
+		players[0].tileList = [startLoc].concat(startLoc.neighbors);
+		for (let i = 0; i < startLoc.neighbors.length; i++) {
+			if (startLoc.neighbors[i].type != 0) {
+				startLoc.neighbors[i].cities = 1;
+				startLoc.neighbors[i].owner = players[0];
+			} else {
+				startLoc.neighbors[i].units.push(new Unit(seaUnitTypeNames[Math.floor(seaUnitTypeNames.length * Math.random())], players[0]));
+				startLoc.neighbors[i].units.push(new Unit(seaUnitTypeNames[Math.floor(seaUnitTypeNames.length * Math.random())], players[0]));
+				players[0].development += 4;
+			}
+		}
+		players[0].updateInfoBar();
+		players[0].canReconstituteCities = true;
 	}
 	</script>
 </body>
