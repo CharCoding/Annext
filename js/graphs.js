@@ -25,13 +25,15 @@ function drawGraph(ctx, data, graphType, drawKey, customColors) {
     minval = Math.min(minval, Math.min(...data.ys[i]));
   }
   if (minval > 0) minval = 0;
-  var yscale = h / (maxval - minval);
+  var yscale = h / (maxval - minval) * 0.9;
   if (graphType == "line" || graphType == "bar") {
     var tickdist = Math.pow(10, Math.round(Math.log10(maxval - minval)) - 1);
     for (let i = h, j = 0; i > 0; i -= tickdist * yscale, j++) {
       ctx.fillStyle = "white";
       ctx.fillRect(0, i, 10, 1);
-      ctx.fillText(Math.round(j * tickdist), 0, i)
+      if (j * tickdist > 10) {
+        ctx.fillText(Math.round(j * tickdist), 0, i)
+      } else ctx.fillText(Math.round(j * tickdist * 10) / 10, 0, i);
     }
   }
   ctx.setTransform(1, 0, 0, -1, 0, h); //Cartesian coordinates
@@ -73,8 +75,8 @@ function drawGraph(ctx, data, graphType, drawKey, customColors) {
   }
   ctx.setTransform(1, 0, 0, 1, 0, 0); //return to default coordinates
 }
-var testDataSet = new DataSet( //placeholder until actual data logging functionality is in place
+/*var testDataSet = new DataSet( //placeholder until actual data logging functionality is in place
   ["CountryA", "CountryB", "CountryC", "CountryD"],
   [1, 2, 3, 4],
   [[4, 2, 3, 6], [5, 5, 4, 7], [6, 9, 8, 5], [8, 9, 11, 7]]
-);
+);*/

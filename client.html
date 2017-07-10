@@ -364,12 +364,13 @@
 				<center><a id="historyGraphTitle" class="dropdown-button btn pink" data-activates="historyGraphSelector">Development</a></center>
 				<ul id='historyGraphSelector' class='dropdown-content indigo-text'>
 					<li><a class="indigo-text">Development</a></li>
-					<li><a class="indigo-text">Population</a></li>
-					<li><a class="indigo-text">iron Production</a></li>
+					<!--<li><a class="indigo-text">Population</a></li>-->
+					<li><a class="indigo-text">Iron Production</a></li>
 					<li><a class="indigo-text">Oil Production</a></li>
 					<li><a class="indigo-text">Air Units</a></li>
 					<li><a class="indigo-text">Land Units</a></li>
 					<li><a class="indigo-text">Sea Units</a></li>
+					<li><a class="indigo-text">Tiles</a></li>
 					<li><a class="indigo-text">Nuclear Weapons</a></li>
 			 </ul>
 			 <canvas id="historyGraph"></canvas>
@@ -380,8 +381,8 @@
 			<center><a id="statsTitle" class="dropdown-button btn pink" data-activates="statsSelector">Development</a></center>
 			<ul id='statsSelector' class='dropdown-content indigo-text'>
 				<li><a class="indigo-text">Development</a></li>
-				<li><a class="indigo-text">Population</a></li>
-				<li><a class="indigo-text">iron Production</a></li>
+				<!--<li><a class="indigo-text">Population</a></li>-->
+				<li><a class="indigo-text">Iron Production</a></li>
 				<li><a class="indigo-text">Oil Production</a></li>
 				<li><a class="indigo-text">Air Units</a></li>
 				<li><a class="indigo-text">Land Units</a></li>
@@ -400,7 +401,7 @@
 							 <th id="statsTablePercentHeading">% of World Development</th>
 						 </tr>
 					 </thead>
-					 <tbody id="statBody">
+					 <tbody id="statsBody">
 					 </tbody>
 				 </table>
 			 </div>
@@ -490,7 +491,17 @@
 				</select>
 				<label>ICON SET</label>
 			</div>
-			<p>Zoom:</p>
+			<div class="input-field col s12">
+			 <select id="settingsZoomSpeed">
+				 <option value="0.01" onclick="zoomSpeed=1/100">Default</option>
+				 <option value="0.02" onclick="zoomSpeed=1/75">Fast</option>
+				 <option value="0.04" onclick="zoomSpeed=1/50">Faster</option>
+				 <option value="0.08" onclick="zoomSpeed=1/25">Fastest</option>
+				 <option value="0.16" onclick="zoomSpeed=1/10">Ludicrous Speed</option>
+			 </select>
+			 <label>ZOOM SPEED</label>
+		 </div>
+		 <p>Zoom direction:</p>
 			<div id="settingsInvertZoom" class="switch">
 		    <label>
 		      Normal Zoom
@@ -506,15 +517,6 @@
 		      <input type="checkbox">
 		      <span class="lever"></span>
 		      Enabled (WARNING: EXPERIMENTAL)
-		    </label>
-		  </div>
-			<p>Strategic map view (tiles colored with player color instead of terrain color when zoomed out):</p>
-			<div id="settingsStrategicMapView" class="switch">
-		    <label>
-		      Disabled
-		      <input type="checkbox">
-		      <span id="settingsStrategicMapViewLever" class="lever"></span>
-		      Enabled
 		    </label>
 		  </div>
 		 </div>
@@ -575,14 +577,14 @@
 			}
 			loadIconSet(evt.target.value);
 		});
+		$('#settingsZoomSpeed').on('change', function(evt) {
+			zoomSpeed = parseFloat(evt.target.value);
+		});
 		$('#settingsInvertZoom').on('change', function(evt) {
 			zoomDirection *= -1;
 		});
 		$('#settingsInfiniteScroll').on('change', function(evt) {
 			useInfiniteScroll = !useInfiniteScroll;
-		});
-		$('#settingsStrategicMapView').on('change', function(evt) {
-			enableStrategicMapView = !enableStrategicMapView;
 		});
 		$('#nextTurnCheckbox').on('change', function(evt) {
 			nextTurnCheckbox.checked = !nextTurnCheckbox.checked;
@@ -591,9 +593,7 @@
 		$('select').material_select();
 		$('#historyGraphSelector').on('click', function(evt) {
 			if(evt.target.tagName != 'A') return; // sometimes it selects the outer <ul> as target
-			var type = evt.target.innerHTML;
-			historyGraphTitle.innerHTML = type;
-			//drawGraph(historyGraph.getContext('2d'), getDataSet(type, players), "line", true)
+			drawHistoryGraph(evt.target.innerHTML);
 		});
 		$('#statsSelector').on('click', function(evt) {
 			if(evt.target.tagName != 'A') return;
@@ -601,25 +601,26 @@
 			statsTitle.innerHTML = type;
 			statsTableHeading.innerHTML = type;
 			statsTablePercentHeading.innerHTML = "% of World " + type;
+			drawStatsGraph(evt.target.innerHTML);
 		});
 		Materialize.updateTextFields();
 		//GRAPH TESTS (remove after functionality for getting player data is in place):
-		drawGraph(historyGraph.getContext('2d'), testDataSet, "line", true);
-		drawGraph(statsGraph.getContext('2d'), testDataSet, "pie", true);
+		/*drawGraph(historyGraph.getContext('2d'), testDataSet, "line", true);
+		drawGraph(statsGraph.getContext('2d'), testDataSet, "pie", true);*/
 	});
 	let width = window.innerWidth, height = window.innerHeight - 64, //height of top tab
 	keys = new Array(100).fill(0), timer,  mapSize = 25, moved = true,
 	zoomDirection = 1,
 	iconSize = 5,
-	enableStrategicMapView = true,
+	politicalMapMode = false,
 	useInfiniteScroll = false,
 	iconSet = "icon",
 	unitTypeNames = ["Infantry", "MechanizedInfantry", "Tank", "Artillery",
-		"Destroyer", "Cruiser", "Battleship", "Submarine", "AircraftCarrier", "Transport",
+		"Destroyer", "Cruiser", "Battleship", "Submarine", "AircraftCarrier", "Transport", "OffshoreRig",
 		"Fighter", "Bomber", "MRBM", "ICBM", "MRBMlaunched", "ICBMlaunched"/*, "Helicopter"*/],
 	landUnitTypeNames = ["Infantry", "Artillery", "MechanizedInfantry", "Tank"],
 	airUnitTypeNames = ["Fighter", "Bomber"],
-	seaUnitTypeNames = ["AircraftCarrier", "Battleship", "Cruiser", "Destroyer", "Submarine", "Transport"],
+	seaUnitTypeNames = ["AircraftCarrier", "Battleship", "Cruiser", "Destroyer", "Submarine", "Transport", "OffshoreRig"],
 	missileTypeNames = ["MRBM", "ICBM"],
 	launchedMissileTypeNames = ["MRBMlaunched", "ICBMlaunched"],
 	buildingTypeNames = ["OilRig", "Mine", "UraniumMine", "UraniumRefinery"],
@@ -628,10 +629,7 @@
 	typeCategories = [seaUnitTypeNames, landUnitTypeNames, airUnitTypeNames, missileTypeNames, launchedMissileTypeNames, buildingTypeNames, resourceTypeNames, launchedMissileTypeNames, specialIcons], //for finding icon in sprite
 	terrainTypeNames = ["sea", "plains", "desert", "mountains"],
 	materialResourceIcons = { //material icons used for each resource. Do they make sense? No.
-		development : "receipt",
-		iron : "view_week",
-		oil : "invert_colors",
-		uranium : ""
+		development:"receipt", iron:"view_week", oil:"invert_colors", uranium:""
 	},
 	defaultResourceQuantity = Infinity,
 	resourceNames = ["development", "iron", "oil", "uranium", "enrichedUranium"];
@@ -643,7 +641,6 @@
 	map = new Array(mapSize), mouse = {
 		x: width / 2, y: height / 2, dragged: false, dragStart: null, scale: 1
 	}, players = [];
-	settingsStrategicMapViewLever.click();
 	trackTransforms(t);
 	historyGraph.width = width / 1.5; historyGraph.height = height / 1.5;
 	statsGraph.width = width / 2.5; statsGraph.height = height / 2;
@@ -653,6 +650,45 @@
 	t.lineCap = "square";
 	t.lineWidth = 2;
 	t.translate(width / 2, height / 2);
+	function drawHistoryGraph(type) {
+		var dataName = type.charAt(0).toLowerCase() + type.split(" ").join("").slice(1),
+		labels = [], ticks = [], data = [];
+		historyGraphTitle.innerHTML = type;
+		for (let i = 0; i < players[0].history[dataName].length; i++) ticks.push(i + 1);
+		for (let i = 0; i < players.length; i++) labels.push(players[i].name);
+		for (let i = 0; i < ticks.length; i++) {
+			let datar = [];
+			for (let j = 0; j < players.length; j++) {
+				datar.push(players[j].history[dataName][i]);
+			}
+			data.push(datar);
+		}
+		drawGraph(historyGraph.getContext('2d'), new DataSet(labels, ticks, data), "line", true);
+	}
+	function drawStatsGraph(type) {
+		var dataName = type.charAt(0).toLowerCase() + type.split(" ").join("").slice(1);
+		while (statsBody.firstChild) statsBody.removeChild(statsBody.firstChild);
+		let labels = [], data = [], sum = 0;
+		for (let i = 0; i < players.length; i++) {
+			let lastAmount = players[i].history[dataName][players[i].history[dataName].length - 1];
+			sum += lastAmount;
+			data.push(lastAmount);
+			labels.push(players[i].name);
+		}
+		drawGraph(statsGraph.getContext('2d'), new DataSet(labels, [1], [data]), "pie", true);
+		for (let i = 0; i < players.length; i++) {
+			let lastAmount = players[i].history[dataName][players[i].history[dataName].length - 1],
+			tr = document.createElement("tr"), pname = document.createElement("td"),
+			pnum = document.createElement("td"), ppercent = document.createElement("td");
+			statsBody.appendChild(tr);
+			tr.appendChild(pname); tr.appendChild(pnum); tr.appendChild(ppercent);
+			pname.innerHTML = players[i].name;
+			pnum.innerHTML = lastAmount;
+			if (sum == 0) {
+				ppercent.innerHTML = "0%";
+			} else ppercent.innerHTML = Math.round(lastAmount / sum * 100) + "%";
+		}
+	}
 	function removeAllChildNodes(el) {
 		while (el.firstChild) {
 			el.removeChild(el.firstChild);
@@ -755,6 +791,9 @@
 					}
 				}
 			}
+			for (let i = 0; i < this.tile.units.length; i++) { //IDK why but this prevents a bug
+				this.tile.units[i].selected = false;
+			}
 			if (disembarked.length > 0) {
 				alert("The following units could not be embarked because the transport unit's carrying capacity is not high enough: " + disembarked.join(", "))
 			}
@@ -798,9 +837,7 @@
 		clear : function() {
 			this.hideLaunchOption();
 			this.hideBombOption();
-			for (let i = 0; i < this.units.length; i++) {
-				this.units[i].selected = false;
-			}
+			for (let i = 0; i < this.units.length; i++) this.units[i].selected = false;
 			this.units = [];
 			this.refreshMoves();
 			this.countPassengers();
@@ -854,7 +891,7 @@
 						this.tile.units[i].selected = true;
 						this.units.push(this.tile.units[i]);
 						if (unit.category == 3) selected.showLaunchOption();
-						if (unit.typeName == "Bomber" && unit.movesLeft > 2 && selected.tile.type != 0) this.showBombOption();
+						if (unit.typeName == "Bomber" && unit.movesLeft > 1 && selected.tile.type != 0) this.showBombOption();
 						this.countPassengers();
 						if (!selectAll) return;
 					}
@@ -908,9 +945,11 @@
 			for (let i = 0; i < this.units.length; i++) {
 				if (this.units[i].typeName == "Bomber" && this.units[i].movesLeft > 2) {
 					++num;
-					this.units[i].movesLeft -= 2;
+					this.units[i].movesLeft -= 1;
+					moved = true;
 				}
 			}
+			this.refreshMoves();
 			this.tile.bomb(num);
 		}
 	},
@@ -939,7 +978,7 @@
 							}
 						}
 					}
-					if (map[x][y].type == 4 && Math.random() > 0.7) {
+					if (map[x][y].type == 4 && Math.random() > 0.7) { //nuclear wasteland decay & damage
 						map[x][y].type = 2;
 						map[x][y].color = colors[2];
 					} else if (map[x][y].type == 4) {
@@ -949,6 +988,7 @@
 						map[x][y].oilRigs = 0;
 						map[x][y].cities = Math.max(map[x][y].cities - 1, 0);
 					}
+					if(map[x][y].type==0) map[x][y].maxUnitsPerTurn=map[x][y].getMaxUnitsPerTurn();//assign max unit build number to sea tiles
 					map[x][y].killUnbasedUnits();
 					if (map[x][y].damage >= 3) {
 						while (map[x][y].damage >= 3) {
@@ -978,6 +1018,8 @@
 			this.y = y;
 			this.owner = null;
 			this.ownerColor = "#0000ff";
+			this.unitsBuiltThisTurn = 0;
+			this.maxUnitsPerTurn = 0;
 			this.cities = 0;
 			this.mines = 0;
 			this.oilRigs = 0;
@@ -989,7 +1031,7 @@
 			this.iron = 0; //resource amounts set during map gen
 			this.oil = 0;
 			this.uranium = 0;
-			this.ironSources = 0; //number of sources of each resource - determines how fast resource depletes
+			this.ironSources = 0; //number of sources of each resource - determines how fast resource is extracted
 			this.oilSources = 0;
 			this.uraniumSources = 0;
 			this.damage = 0;
@@ -1018,7 +1060,7 @@
 				map[this.x][mod(this.y + 1, mapSize)],
 			];
 		}
-		adjacentToLand(requirePlayerTile){
+		adjacentToLand(requirePlayerTile) {
 			for (let i = 0; i < this.neighbors.length; i++) {
 				if (this.neighbors[i].type != 0) {
 					if (requirePlayerTile && this.neighbors[i].owner == players[0]) {
@@ -1028,6 +1070,13 @@
 					}
 				}
 			}
+		}
+		adjacentPlayerNumber() {
+			let arr = [];
+			for (let i = 0; i < this.neighbors.length; i++) {
+				if (this.neighbors[i].owner != null) arr.push(this.neighbors[i].owner.name);
+			}
+			return [...new Set(arr)].length;
 		}
 		hexesWithinDist(n, moveBiomes) {
 			if (moveBiomes == undefined) moveBiomes = [1, 1, 1, 1];
@@ -1058,11 +1107,11 @@
 					}
 				}
 			}
-			if (enableStrategicMapView) {
+			if (politicalMapMode) {
 				if (this.owner != null) {
 					borders.push(this.owner.hexColor);
 				} else if (this.type == 0) {
-					borders.push("#000161")
+					borders.push("#00018b")
 				} else borders.push("#d7d7d7");
 			} else if (this.owner) {
 				borders.push(this.owner.hexColor);
@@ -1070,12 +1119,29 @@
 			if (selected.canMoveTo.indexOf(this) != -1 && color != "outline") {
 				color = getColorFromScale(colors[this.type], "#000000", 0.25);
 			}
+			if (selected.canMoveTo.indexOf(this) != -1 && politicalMapMode) {
+				borders[borders.length - 1] = getColorFromScale(borders[borders.length - 1], "#ffffff", 0.5)
+			}
 			color = color || this.color;
 			if (useInfiniteScroll) {
 				this.renderWhere = [[0, 0], [-Hshift * 2, 0], [-Hshift, -Vshift], [-Hshift, Vshift]];
 			} else this.renderWhere = [[0,0]];
 			for (let i = 0; i < this.renderWhere.length; i++) {
 				Hex.render(x + this.renderWhere[i][0], y + this.renderWhere[i][1], color, borders)
+			}
+		}
+		getMaxUnitsPerTurn() {
+			let sum = this.cities;
+			for (let i = 0; i < this.neighbors.length; i++) {
+				if (this.neighbors[i].owner == this.owner && this.type != 0) {
+					sum += this.neighbors[i].cities;
+				} else if (this.type == 0) sum += this.neighbors[i].cities;
+			}
+			if (this.type == 0) {
+				if (this.adjacentPlayerNumber() != 1) return 0;
+				return sum;
+			} else {
+				return sum;
 			}
 		}
 		drawUnits() {
@@ -1174,7 +1240,7 @@
 			t.lineTo(x - r / 2, y - r * .866);
 			t.lineTo(x + r / 2, y - r * .866);
 			t.closePath();
-			if (t.getTransform().a < 1 && enableStrategicMapView) {
+			if (politicalMapMode && color != "outline") {
 				t.fillStyle = borders[borders.length - 1];
 				t.fill();
 			} else if(color == "outline") {
@@ -1397,7 +1463,6 @@
 			moved = true;
 			if (this.type != 0) {
 				this.type = 4;
-				this.color = colors[this.type];
 			}
 		}
 		bomb(bombers) {
@@ -1415,10 +1480,20 @@
 			this.iron = 0;
 			this.uranium = 0;
 			this.enrichedUranium = 0;
+			this.oilProduction = 0;
+			this.ironProduction = 0;
+			this.uraniumProduction = 0;
+			this.tiles = 6;
+			this.history = {
+				development:[10], ironProduction:[0], oilProduction:[0], tiles:[6],
+				airUnits:[0], landUnits:[6], seaUnits:[0],
+				nuclearWeapons:[0]
+			}
 			this.buildings = 0;
 			this.landUnits = 0;
 			this.seaUnits = 0;
 			this.airUnits = 0;
+			this.nuclearWeapons = 0;
 			this.tileList = [];
 			this.color = 'indigo'; // TEMPORARY, players should get color code from server.
 			this.hexColor = '#3f51b5'; // used by Hex.draw, (borders/units/buildings etc.)
@@ -1460,10 +1535,12 @@
 			++this.reconstitutedCities;
 			this.updateInfoBar();
 		}
-		addUnit(x, y, unitType, build){
+		addUnit(x, y, unitType, build) {
 			if (build == undefined) build = true; //build = build || true;
 			let hex = map[x][y],
 			unit = new Unit(unitType, this);
+			if (!(hex.maxUnitsPerTurn > hex.unitsBuiltThisTurn)) return false;
+			if (hex.type != 0 && hex.cities == 0) return false;
 			for (let i = 0; i < unit.cost.length; i++) {
 				if (this[resourceNames[i]] < unit.cost[i]) {
 					return false;
@@ -1474,9 +1551,10 @@
 			this.updateInfoBar();
 			unit.movesLeft = 0;
 			map[x][y].units.push(unit);
+			++hex.unitsBuiltThisTurn;
 			// more webSocket majikz and map majikz
 		}
-		addBuilding(x, y, building, build){
+		addBuilding(x, y, building, build) {
 			if (build == undefined) build = true;//build = build || true;
 			let hex = map[x][y], cost = [];
 			switch (building) {
@@ -1497,9 +1575,7 @@
 					break;
 			}
 			for (let i = 0; i < cost.length; i++) {
-				if (this[resourceNames[i]] < cost[i]) {
-					return false;
-				}
+				if (this[resourceNames[i]] < cost[i]) return false;
 			}
 			if (!build) return true;
 			for (let i = 0; i < cost.length; i++) this[resourceNames[i]] -= cost[i];
@@ -1523,6 +1599,16 @@
 			this.updateInfoBar();
 			// even more webSocket majikz and map majikz
 		}
+		repairDamage(x, y, repair) {
+			let cost = [1, 1, 1, 0];
+			for (let i = 0; i < cost.length; i++) {
+				if (this[resourceNames[i]] < cost[i]) return false;
+			}
+			if (!repair) return true;
+			for (let i = 0; i < cost.length; i++) this[resourceNames[i]] -= cost[i];
+			--map[x][y].damage;
+			this.updateInfoBar();
+		}
 		addResource(x, y, resourceType, build) {
 			if (build == undefined) build = true;
 			if (this.reconstitutedCities < 2) return false;
@@ -1536,6 +1622,7 @@
 				let tileResources = this.tileList[i].extractResources();
 				for (let j in tileResources) {
 					this[j] += tileResources[j];
+					if (j != "development") this[j + "Production"] += tileResources[j];
 				}
 				if (this.tileList[i].uraniumRefineries > 0 && this.uranium > 0) {
 					--this.uranium;
@@ -1556,12 +1643,56 @@
 			}
 		}
 		nextTurn() {
+			this.oilProduction = 0;
+			this.ironProduction = 0;
+			this.uraniumProduction = 0;
+			this.seaUnits = 0;
+			this.landUnits = 0;
+			this.airUnits = 0;
 			this.development = 0;
+			this.tiles = 0;
 			this.reconstitutedCities = 0;
 			this.canReconstituteCities = true;
 			this.getTileResources();
 			this.updateOwnedTiles();
+			for (let i = 0; i < this.tileList.length; i++) {
+				this.tileList[i].maxUnitsPerTurn = this.tileList[i].getMaxUnitsPerTurn();
+			}
+			for (let x = 0; x < map.length; x++) {
+				for (let y = 0; y < map.length; y++) {
+					if (map[x][y].owner == this) ++this.tiles;
+					for (let z = 0; z < map[x][y].units.length; z++) {
+						let oilRigFound = false;
+						if (map[x][y].units[z].owner == this) {
+							let u = map[x][y].units[z].typeName;
+							if (seaUnitTypeNames.indexOf(u) != -1) ++this.seaUnits;
+							if (landUnitTypeNames.indexOf(u) != -1) ++this.landUnits;
+							if (airUnitTypeNames.indexOf(u) != -1) ++this.airUnits;
+							if (u == "ICBM" || u == "MRBM") ++this.nuclearWeapons;
+							if (u == "OffshoreRig" && !oilRigFound) {
+								let incr = Math.min(map[x][y].oilSources, map[x][y].unitsOfType("OffshoreRig"))
+								this.oil += incr;
+								this.oilProduction += incr;
+								map[x][y].oil -= incr;
+								if (map[x][y].oil < 0) {
+									this.oil += map[x][y].oil;
+									this.oilProduction += map[x][y].oil;
+									map[x][y].oil = 0;
+								}
+							}
+						}
+					}
+				}
+			}
 			this.updateInfoBar();
+			this.history.development.push(this.totalCities());
+			this.history.ironProduction.push(this.ironProduction);
+			this.history.oilProduction.push(this.oilProduction);
+			this.history.tiles.push(this.tiles);
+			this.history.airUnits.push(this.airUnits);
+			this.history.landUnits.push(this.landUnits);
+			this.history.seaUnits.push(this.seaUnits);
+			this.history.nuclearWeapons.push(this.nuclearWeapons);
 		}
 		canAfford(dev, oil, iron, uranium) {
 			if (dev > this.development) return false;
@@ -1599,14 +1730,14 @@
 			this.color = color || owner.hexColor;
 			this.typeName = typeName;
 			this.passengers = [];
-			this.carryPlanes = 0; //defaults (most common);
+			this.carryPlanes = 0; //defaults (most common)
 			this.carryWeight = 0;
 			this.isPlane = false;
 			this.selected = false;
 			switch (typeName) {
 				case "Infantry":
 					this.move = 2;
-					this.cost = [2, 0, 0, 0, 0];
+					this.cost = [1, 1, 0, 0, 0];
 					this.weight = 1;
 					this.canMove = [false, true, true, true, true]; //[0] -> sea, [1] -> land, [2] -> desert, etc.
 					this.isBase = [false, true, true, true, false]; //can unit stop and stay there without dying
@@ -1697,9 +1828,19 @@
 					this.hexDisp = [1, -1];
 					this.category = 0;
 					break;
+				case "OffshoreRig":
+					this.move = 1;
+					this.cost = [4, 4, 1, 0, 0];
+					this.weight = 999;
+					this.carryWeight = 0;
+					this.canMove = [true, false, false, false, false];
+					this.isBase = [true, false, false, false, false];
+					this.hexDisp = [2, -1];
+					this.category = 0;
+					break;
 				case "Fighter":
 					this.move = 8;
-					this.cost = [4, 0, 3, 0, 0];
+					this.cost = [8, 0, 3, 0, 0];
 					this.weight = 999;
 					this.carryWeight = 1;
 					this.canMove = [true, true, true, true, true];
@@ -1710,7 +1851,7 @@
 					break;
 				case "Bomber":
 					this.move = 8;
-					this.cost = [4, 3, 0, 0, 0];
+					this.cost = [12, 3, 3, 0, 0];
 					this.weight = 999;
 					this.carryWeight = 2;
 					this.canMove = [true, true, true, true, true];
@@ -1730,7 +1871,7 @@
 					break;
 				case "MRBM":
 					this.move = 1;
-					this.cost = [8, 1, 1, 0, 4];
+					this.cost = [8, 1, 1, 0, 2];
 					this.weight = 12;
 					this.canMove = [false, true, true, true, true];
 					this.isBase = [false, true, true, true, false];
@@ -1749,7 +1890,7 @@
 					break;
 				case "ICBM":
 					this.move = 1;
-					this.cost = [10, 1, 4, 0, 4];
+					this.cost = [12, 1, 2, 0, 2];
 					this.weight = 12;
 					this.canMove = [false, true, true, true, true];
 					this.isBase = [false, true, true, true, false];
@@ -1849,6 +1990,7 @@
 		removeAllChildNodes(unitBuildMenu);
 		removeAllChildNodes(resourceBuildMenu);
 		removeAllChildNodes(missileBuildMenu);
+		moved = true;
 	}
 	function mod(a, b){ return a - Math.floor(a / b) * b; }
 	c.addEventListener('mousedown',function(evt){
@@ -1872,7 +2014,7 @@
 		moved = true;
 		mouse.dragStart = null;
 	},false);
-	c.addEventListener('click',function(evt){ //MAIN MAP CANVAS CLICK EVENT
+	c.addEventListener('click',function(evt){ //MAIN CLICK EVENT
 		resetCtxMenu();
 		$('#menuCityBtn').off();
 		$('#menuMineBtn').off();
@@ -1884,7 +2026,6 @@
 			/*
 			hex.type++;
 			if(hex.type > 3) hex.type = 0;
-			hex.color = colors[hex.type];
 			*/
 			moved = true;
 		} else {
@@ -1904,6 +2045,21 @@
 		}
 	},false);
 	function ctxmenuAddIcons(typeNames, container, type, hex, category, x, y) {
+		if (type == "building" && hex.damage > 0 && players[0].repairDamage(hex.x, hex.y, false)) {
+			var div = document.createElement("div"),
+			cnv = document.createElement("canvas");
+			cnv.width = "50";
+			cnv.height = "50";
+			div.className = "row";
+			cnv.getContext("2d").drawImage(spritesheet, 350, 50, 50, 50, 0, 0, 50, 50);
+			container.appendChild(div);
+			div.appendChild(cnv);
+			cnv.addEventListener("click", function() {
+				players[0].repairDamage(hex.x, hex.y, true);
+				resetCtxMenu();
+				createCtxMenu(x, y, hex);
+			});
+		}
 		for (let i = 0; i < typeNames.length; i++) {
 			var div = document.createElement("div"),
 			cnv = document.createElement("canvas");
@@ -1918,21 +2074,18 @@
 					players[0].addBuilding(hex.x, hex.y, typeNames[i]);
 					resetCtxMenu();
 					createCtxMenu(x, y, hex);
-					moved = true;
 				});
 			} else if (type === "unit") {
 				cnv.addEventListener("click", function() {
 					players[0].addUnit(hex.x, hex.y, typeNames[i]);
 					resetCtxMenu();
 					createCtxMenu(x, y, hex);
-					moved = true;
 				});
 			} else if (type === "resource") {
 				cnv.addEventListener("click", function() {
 					players[0].addResource(hex.x, hex.y, typeNames[i]);
 					resetCtxMenu();
 					createCtxMenu(x, y, hex);
-					moved = true;
 				});
 			}
 		}
@@ -1951,10 +2104,8 @@
 		return r;
 	}
 	function createCtxMenu(x, y, hex) {
-		ctxmenu.style.display = "inline";
-		ctxmenu.style.left = x;
-		ctxmenu.style.top = y;
 		ctxmenutitle.innerHTML = "Sector " + "ABCDEFGHIJKLMNOPQRSTUVWXYZ"[hex.y] + (hex.x + 1);
+		if (hex.maxUnitsPerTurn > 0) ctxmenutitle.innerHTML += " | Unit builds left: " + (hex.maxUnitsPerTurn - hex.unitsBuiltThisTurn);
 		economymenu.style.display = "inline";
 		if (hex.owner != null && hex.type > 0) {
 			if (players[0].addBuilding(hex.x, hex.y, "City", false)) {
@@ -1999,16 +2150,29 @@
 			ctxmenuAddIcons(getAffordableItems(resources, hex.x, hex.y, "resource"), resourceBuildMenu, "resource", hex, 6, x, y);
 		}
 		if (hex.type == 0 && hex.adjacentToLand(true)) {
-			ctxmenuAddIcons(getAffordableItems(seaUnitTypeNames, hex.x, hex.y, "unit"), unitBuildMenu, "unit", hex, 0, x, y);
+			//ctxmenuAddIcons(getAffordableItems(seaUnitTypeNames, hex.x, hex.y, "unit"), unitBuildMenu, "unit", hex, 0, x, y);
+			let set1 = [], set2 = [];//to split sea unit builds into two columns to avoid super-long ctxmenu
+			for (let i = 0; i < seaUnitTypeNames.length; i++) {
+				if (i <= seaUnitTypeNames.length / 2) {
+					set1.push(seaUnitTypeNames[i]);
+				} else set2.push(seaUnitTypeNames[i]);
+			}
+			ctxmenuAddIcons(getAffordableItems(set1, hex.x, hex.y, "unit"), buildingBuildMenu, "unit", hex, 0, x, y);
+			ctxmenuAddIcons(getAffordableItems(set2, hex.x, hex.y, "unit"), unitBuildMenu, "unit", hex, 0, x, y);
 		}
+		ctxmenu.style.display = "inline";
+		ctxmenu.style.left = x + "px";
+		ctxmenu.style.top = y + "px";
+		/*ctxmenu.style.top = y - Math.max(0, -c.height + y + $('#ctxmenu').height())+ "px";
+		ctxmenu.style.left = x - Math.max(0, -c.width + x + $('#ctxmenu').height())+ "px";*/
 	}
 	c.addEventListener('contextmenu',function(evt){
 		evt.preventDefault();
 		resetCtxMenu();
 		var pt = t.transformedPoint(mouse.x, mouse.y),
 		hex = Hex.round(pt.x, pt.y),
-		x = evt.pageX + "px",
-		y = evt.pageY + "px";
+		x = evt.pageX,
+		y = evt.pageY;
 		createCtxMenu(x, y, hex);
 		return false;
 	},false);
@@ -2044,8 +2208,16 @@
 		if($(':focus').length) return;
 		switch(evt.keyCode){
 			case 49: mapButton.click(); break;
-			case 50: historyButton.click(); break;
-			case 51: statsButton.click(); break;
+			case 50:
+				drawHistoryGraph(historyGraphTitle.innerHTML);
+				historyButton.click(); break;
+			case 51:
+				drawStatsGraph(statsTitle.innerHTML);
+				statsButton.click(); break;
+			case 80:
+				politicalMapMode = !politicalMapMode;
+				moved = true;
+				break;
 		}
 		keys[evt.keyCode] = 1 - evt.shiftKey * .866; // shift for slower movement
 	});
@@ -2060,6 +2232,7 @@
 		mouse.y = width / 2;
 		moved = true;
 	});
+	var zoomSpeed = 1/100;
 	function zoom(clicks){
 		moved = true;
 		let pt = t.transformedPoint(mouse.x,mouse.y), factor = Math.pow(scaleFactor,clicks*zoomDirection);
@@ -2071,7 +2244,7 @@
 		if(a < 0.866 || a > 8) t.restore();
 	}
 	addWheelListener(c,function(evt){
-		zoom(Math.min(Math.max(evt.deltaY / 100, -8), 8));
+		zoom(Math.min(Math.max(evt.deltaY * zoomSpeed, -8), 8));
 		return evt.preventDefault() && false;
 	});
 	let interval = 20, now, then = Date.now(), delta; // FPS controller and input check for optimizations
@@ -2082,7 +2255,7 @@
 		if(delta <= interval) return;
 		if(keys[68] - keys[65] || keys[83] - keys[87] || keys[38] - keys[40]) {
 			moved = true;
-			t.translate((keys[65] - keys[68]) * 5 / t.getTransform().a, (keys[87] - keys[83]) * 5 / t.getTransform().a);
+			t.translate((keys[65] - keys[68]) * 9 / t.getTransform().a, (keys[87] - keys[83]) * 9 / t.getTransform().a);
 			zoom(keys[38] - keys[40]);
 		}
 		if(!moved) return;
@@ -2137,7 +2310,7 @@
 		var borderLand = 0.5,
 		borderDesert = 0.65,
 		borderMountain = 0.75,
-		levelSizes = [30, 12, 6, 3], //size of (square) level tiles
+		levelSizes = [30, 10, 5, 3], //size of (square) level tiles
 		levelNumbers = [1000, 1000, 1000, 1000], //number of tiles for each level that will need to be generated to fill map (optimize later)
 		levels = [], //values for each level
 		levelMultipliers = [0.1, 0.05, 0.4, 0.25, 0.2]; //weights assigned to sum of each level (should add to 1)
@@ -2280,7 +2453,7 @@
 		map[0][1].mines = 1;
 		map[0][1].oilRigs = 0;
 		map[0][1].owner = players[0];
-		players[0].tileList = [map[0][1]];
+		players[0].tileList = players[0].tileList.concat([map[0][1]]);
 		players[0].updateInfoBar();
 		players[0].development = 999;
 		players[0].iron = 99;
@@ -2313,13 +2486,17 @@
 				startLoc.neighbors[i].cities = 1;
 				startLoc.neighbors[i].owner = players[0];
 			} else {
-				startLoc.neighbors[i].units.push(new Unit(seaUnitTypeNames[Math.floor(seaUnitTypeNames.length * Math.random())], players[0]));
-				startLoc.neighbors[i].units.push(new Unit(seaUnitTypeNames[Math.floor(seaUnitTypeNames.length * Math.random())], players[0]));
+				var chooseFrom = ["Transport", "Transport", "Destroyer", "Cruiser", "Submarine", "Battleship"]
+				startLoc.neighbors[i].units.push(new Unit(seaUnitTypeNames[Math.floor(chooseFrom.length * Math.random())], players[0]));
+				startLoc.neighbors[i].units.push(new Unit(seaUnitTypeNames[Math.floor(chooseFrom.length * Math.random())], players[0]));
 				players[0].development += 4;
 			}
 		}
 		players[0].updateInfoBar();
 		players[0].canReconstituteCities = true;
+		for (let i = 0; i < players[0].tileList.length; i++) {
+			players[0].tileList[i].maxUnitsPerTurn = players[0].tileList[i].getMaxUnitsPerTurn();
+		}
 	}
 	</script>
 </body>
