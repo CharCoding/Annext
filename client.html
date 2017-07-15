@@ -515,8 +515,8 @@
 		    <label>
 		      Disabled
 		      <input type="checkbox">
-		      <span class="lever"></span>
-		      Enabled (WARNING: EXPERIMENTAL)
+		      <span class="lever" id="settingsInfiniteScrollLever"></span>
+		      Enabled
 		    </label>
 		  </div>
 		 </div>
@@ -586,6 +586,7 @@
 		$('#settingsInfiniteScroll').on('change', function(evt) {
 			useInfiniteScroll = !useInfiniteScroll;
 		});
+		settingsInfiniteScrollLever.click();
 		$('#nextTurnCheckbox').on('change', function(evt) {
 			nextTurnCheckbox.checked = !nextTurnCheckbox.checked;
 			gameState.nextRound(); //once server functionality exists add check for all other players having moved
@@ -930,7 +931,7 @@
 		launch : function() {
 			let missileArray = [], launched = [];
 			for (let i = 0; i < this.units.length; i++) {
-				if (this.units[i].category == 3) missileArray.push(this.units[i]);
+				if (this.units[i].category == 3 && this.units[i].movesLeft > 0) missileArray.push(this.units[i]);
 			}
 			let owner = missileArray[0].owner;
 			removeMultipleFromArrayByProp(this.tile.units, "category", 3, "selected", true);
@@ -1044,7 +1045,6 @@
 				uranium : [-1, 2],
 				oil : [0, 2]
 			}
-			this.renderWhere = []; //for rendering a hex multiple times for infinite scroll
 			return map[x][y] = this;
 		}
 		get color() {
@@ -1096,6 +1096,11 @@
 			}
 	    return canGo;
 		}
+		interiorPoint(x, y, n) {
+			let dx = Math.sqrt(3) * (x + y / 2) * r / n / 1.5, //no idea where the 1.5 comes from, but it works
+    	dy = 3/2 * y * r / n / 1.5;
+			return [dx + (this.x + this.y) * r * 1.5, dy + (this.y - this.x) * r * .866];
+		}
 		draw(color, r){
 			r = r || 16;
 			let x = (this.x + this.y) * r * 1.5, y = (this.y - this.x) * r * .866,
@@ -1120,12 +1125,15 @@
 				color = getColorFromScale(colors[this.type], "#000000", 0.25);
 			}
 			if (selected.canMoveTo.indexOf(this) != -1 && politicalMapMode) {
-				borders[borders.length - 1] = getColorFromScale(borders[borders.length - 1], "#ffffff", 0.5)
+				borders[borders.length - 1] = getColorFromScale(borders[borders.length - 1], "#ffffff", 0.4)
 			}
 			color = color || this.color;
-			if (useInfiniteScroll) {
-				this.renderWhere = [[0, 0], [-Hshift * 2, 0], [-Hshift, -Vshift], [-Hshift, Vshift]];
-			} else this.renderWhere = [[0,0]];
+			/*if (useInfiniteScroll) {
+				this.renderWhere = [[0, 0], [-Hshift * 2, 0], [-Hshift, -Vshift], [-Hshift, Vshift],
+					[Hshift, -Vshift], [Hshift, Vshift], [Hshift * 2, 0]];
+			} else {
+				this.renderWhere = [[0,0]];
+			}*/
 			for (let i = 0; i < this.renderWhere.length; i++) {
 				Hex.render(x + this.renderWhere[i][0], y + this.renderWhere[i][1], color, borders)
 			}
@@ -1169,17 +1177,19 @@
 			buildings = ["mines", "oilRigs", "uraniumMines", "uraniumRefineries"],
 			bIcons = ["Mine", "OilRig", "UraniumMine", "UraniumRefinery"];
 			if (this.cities > 0) {
-				t.fillStyle = this.owner.hexColor;
-				t.strokeStyle = "black";
-				t.lineWidth = 1;
-				t.beginPath();
-				t.arc(x, y, r / 4.5, 0, Math.PI * 2);
-				t.stroke();
-				t.fill();
-				t.fillStyle = "white";
-				t.font = "6px sans-serif";
-				t.textAlign = "center";
-				t.fillText(this.cities, x, y + 2);
+				for (let i = 0; i < this.renderWhere.length; i++) {
+					t.fillStyle = this.owner.hexColor;
+					t.strokeStyle = "black";
+					t.lineWidth = 1;
+					t.beginPath();
+					t.arc(x + this.renderWhere[i][0], y + this.renderWhere[i][1], r / 4.5, 0, Math.PI * 2);
+					t.stroke();
+					t.fill();
+					t.fillStyle = "white";
+					t.font = "6px sans-serif";
+					t.textAlign = "center";
+					t.fillText(this.cities, x + this.renderWhere[i][0], y + this.renderWhere[i][1] + 2);
+				}
 			}
 			if (this.damage > 0) {
 				var dp = this.interiorPoint(1, -2, 3);
@@ -1372,6 +1382,7 @@
 		}
 		isClickOnUnit(x, y) {
 			var [tx, ty] = hexCoordToPoint(this.x, this.y),
+			[x, y] = this.getDefaultLoc(x, y),
 			n = 3;
 			x -= tx;
 			y -= ty;
@@ -1383,8 +1394,19 @@
 			}
 			return false;
 		}
+		getDefaultLoc(x, y) {
+			for (let i = 0; i < this.renderWhere.length; i++) {
+				let vx = x - this.renderWhere[i][0], vy = y - this.renderWhere[i][1],
+				coords = Hex.round2(pixelToHex(vx,vy)[0], pixelToHex(vx,vy)[1]);
+				if (coords[0] >= 0 && coords[1] >= 0 && coords[0] < mapSize && coords[1] < mapSize) {
+					return [vx, vy];
+				}
+			}
+			return [];
+		}
 		click(x, y, selectAll, mode) {
 			var [tx, ty] = hexCoordToPoint(this.x, this.y),
+			[x, y] = this.getDefaultLoc(x, y),
 			n = 3;
 			x -= tx;
 			y -= ty;
@@ -1411,11 +1433,6 @@
 					//IN CASE BUILDINGS NEED TO DO SOMETHING ON CLICK, UNCOMMENT AND ADD SOMETHING HERE
 				}
 			}*/
-		}
-		interiorPoint(x, y, n) {
-			let dx = Math.sqrt(3) * (x + y / 2) * r / n / 1.5, //no idea where the 1.5 comes from, but it works
-    	dy = 3/2 * y * r / n / 1.5;
-			return [dx + (this.x + this.y) * r * 1.5, dy + (this.y - this.x) * r * .866];
 		}
 		killUnitsWithProbability(prob, exempted) {
 			if (exempted == undefined) exempted = [];
@@ -2037,7 +2054,7 @@
 				hex.click(pt.x, pt.y, false, "disembark");
 			} else if (selected.canMoveTo.indexOf(hex) == -1 || selected.tile == hex) {
 				if (keys[16] > 0) selectAll = true;
-				hex.click(pt.x, pt.y, selectAll);
+				hex.click(pt.x, pt.y, selectAll, "default");
 				selected.refreshMoves();
 			} else {
 				selected.moveTo(hex);
@@ -2265,15 +2282,42 @@
 		t.setTransform(1,0,0,1,0,0);
 		t.clearRect(0, 0, width, height);
 		t.restore();
+		//THE MAGIC BEGINS - INFINITE MAP SCROLL:
+		let x = t.transformedPoint(0,0).x, y = t.transformedPoint(0,0).y,
+		hexloc = Hex.round2(pixelToHex(x, y)[0], pixelToHex(x, y)[1]),
+		tx = Math.floor(hexloc[0] / mapSize), // coordinates in rhombical coordinate space
+		ty = Math.floor(hexloc[1] / mapSize),
+		sq3 = Math.sqrt(3),
+		shiftx = mapSize * r * 1.5, shifty = mapSize * r * .866,
+		cary = sq3 * (ty - tx) / 2, //convert to Cartesian coordinates (powered by Dark Magic(TM))
+		carx = Math.floor((tx + ty));
+		if (t.getTransform().f < -6 * shifty) t.translate(0, 6 * shifty); //to prevent weird behavior at large y-values
+		if (t.getTransform().f > 6 * shifty) t.translate(0, -6 * shifty);
+		//^this is why zooming in / out and panning sometimes causes flickering. Moving up / down one map will fix it, since it only happens every sixth map.
+		if (cary > 0) cary = Math.ceil(cary);
+		if (cary < 0) cary = Math.floor(cary);
+		if (useInfiniteScroll) {
+			renderr = [[carx,cary], [carx-1,cary+1], [carx+1,cary+1], [carx,cary+2], //3x3
+				[carx+1,cary-1], [carx+2,cary], [carx+1,cary+3], [carx+2,cary+2], [carx+3,cary+1]];
+			for (let i = 0; i < renderr.length; i++) {
+				renderr[i][0] *= shiftx;
+				renderr[i][1] *= shifty;
+			}
+		} else {
+			renderr = [[0, 0]];
+		}
+		//INFINITE MAP SCROLL ENDS 					(... wait a minute)
 		for(let x = 0; x < mapSize; x++){
-			for(let y = 0; y < mapSize; y++)
+			for(let y = 0; y < mapSize; y++) {
+				map[x][y].renderWhere = renderr;
 				map[x][y].draw();
+			}
 		}
 		let pt = t.transformedPoint(mouse.x, mouse.y);
 		Hex.round(pt.x, pt.y).draw("outline");
 		pt = t.transformedPoint(width / 2, height / 2);
 		c.style.backgroundPosition = (width / 2 - pt.x) / 20 + 'px ' + (height / 2 - pt.y) / 20 + 'px';
-		for(let x = 0; x < mapSize; x++){ //looping second time so that hexes don't cover units
+		for(let x = 0; x < mapSize; x++){ //looping second time so that neighboring hexes don't cover units
 			for(let y = 0; y < mapSize; y++) {
 				map[x][y].drawUnits();
 				map[x][y].drawBuildings();
@@ -2336,7 +2380,7 @@
 				} else {
 					map[x][y].type = 0; //redundant, but allows for easier console testing since ocean can overwrite land
 				}
-				map[x][y].sum = sum / prng.m; //debug only - comment out if desired
+				//map[x][y].sum = sum / prng.m; //debug only - comment out if desired
 				map[x][y].color = colors[map[x][y].type];
 				moved = true;
 			}
